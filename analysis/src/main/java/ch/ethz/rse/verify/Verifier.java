@@ -30,57 +30,57 @@ import soot.toolkits.graph.UnitGraph;
 
 /**
  * Main class handling verification
- * 
+ *
  */
 public class Verifier extends AVerifier {
 
-	private static final Logger logger = LoggerFactory.getLogger(Verifier.class);
+  private static final Logger logger = LoggerFactory.getLogger(Verifier.class);
 
-	/**
-	 * class to be verified
-	 */
-	private final SootClass c;
+  /**
+   * class to be verified
+   */
+  private final SootClass c;
 
-	/**
-	 * points to analysis for verified class
-	 */
-	private final PointsToInitializer pointsTo;
+  /**
+   * points to analysis for verified class
+   */
+  private final PointsToInitializer pointsTo;
 
-	/**
-	 * 
-	 * @param c class to verify
-	 */
-	public Verifier(SootClass c) {
-		logger.debug("Analyzing {}", c.getName());
+  /**
+   *
+   * @param c class to verify
+   */
+  public Verifier(SootClass c) {
+    logger.debug("Analyzing {}", c.getName());
 
-		this.c = c;
+    this.c = c;
 
-		// pointer analysis
-		this.pointsTo = new PointsToInitializer(this.c);
-	}
+    // pointer analysis
+    this.pointsTo = new PointsToInitializer(this.c);
+  }
 
-	protected void runNumericalAnalysis(VerificationProperty property) {
-		// TODO: FILL THIS OUT
-	}
+  protected void runNumericalAnalysis(VerificationProperty property) {
+    // TODO: FILL THIS OUT
+  }
 
-	@Override
-	public boolean checkStartEndOrder() {
-		// TODO: FILL THIS OUT
-		return true;
-	}
+  @Override
+  public boolean checkStartEndOrder() {
+    // TODO: FILL THIS OUT
+    return true;
+  }
 
-	@Override
-	public boolean checkAfterStart() {
-		// TODO: FILL THIS OUT
-		return true;
-	}
+  @Override
+  public boolean checkAfterStart() {
+    // TODO: FILL THIS OUT
+    return true;
+  }
 
-	@Override
-	public boolean checkBeforeEnd() {
-		// TODO: FILL THIS OUT
-		return true;
-	}
+  @Override
+  public boolean checkBeforeEnd() {
+    // TODO: FILL THIS OUT
+    return true;
+  }
 
-	// TODO: MAYBE FILL THIS OUT: add convenience methods
+  // TODO: MAYBE FILL THIS OUT: add convenience methods
 
 }
