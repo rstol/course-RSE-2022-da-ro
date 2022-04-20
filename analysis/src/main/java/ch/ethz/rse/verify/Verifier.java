@@ -60,7 +60,9 @@ public class Verifier extends AVerifier {
   }
 
   protected void runNumericalAnalysis(VerificationProperty property) {
-    // TODO: FILL THIS OUT
+    for (SootMethod method : this.c.getMethods()) {
+      new NumericalAnalysis(method, property, this.pointsTo);
+    }
   }
 
   @Override

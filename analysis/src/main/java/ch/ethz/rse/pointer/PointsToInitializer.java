@@ -67,57 +67,45 @@ public class PointsToInitializer {
         // skip constructor of the class
         continue;
       }
+      logger.debug("Analyzing initializers in method: " + method.getName());
 
       // populate data structures perMethod and initializers
-      // TODO: FILL THIS OUT
-      List<Local> localVars = analyzeMethod(method);
-      for (Local lv : localVars) {
-        List<EventInitializer> initializers = this.pointsTo(lv);
-        for (EventInitializer ei : initializers) {
-          perMethod.put(method, ei);
-        }
+      analyzeMethod(method);
+      for (EventInitializer ei : this.initializers.values()) {
+        perMethod.put(method, ei);
       }
     }
   }
-  // Assume: constructor Event takes as first argument (start) only integer
-  // constants
-  // second argument (end) can be initialized with any element of the language
-  // fragment
 
-  // TODO: MAYBE FILL THIS OUT: add convenience methods
   /**
-   * Convenience Method: Analize initializer based on method
+   * Convenience Method: Analyze initializers defined in body of method
    *
-   * @return
+   * @param method
    */
-  private List<Local> analyzeMethod(SootMethod method) {
-    // Assume:
-    // - all analyzed methods only have integer parameters (in particular, they
-    // cannot have Event parameters).
-    // - The analyzed code may contain loops and branches.
-    Collection<Node> nodes;
-    for (Unit ut : method.getActiveBody().getUnits()) {
+  void analyzeMethod(SootMethod method) {
+    // Assume: parameters of method cannot contain Event initializer statements
+    for (Unit ut : method.retrieveActiveBody().getUnits()) {
       if (ut instanceof JInvokeStmt) {
         JInvokeStmt jInvStmt = (JInvokeStmt) ut;
         InvokeExpr invokeExpr = jInvStmt.getInvokeExpr();
         if (invokeExpr instanceof JSpecialInvokeExpr) {
-          nodes = getAllocationNodes((JSpecialInvokeExpr) invokeExpr);
+          JSpecialInvokeExpr specialInvExpr = (JSpecialInvokeExpr) invokeExpr;
+          // logger.debug("Analyzing the JSpecialInvokeExpr " +
+          // specialInvExpr.toString());
+          Collection<Node> nodes = this.getAllocationNodes(specialInvExpr);
+          for (Node node : nodes) {
+            int uniqueNumber = specialInvExpr.hashCode();
+            // Assume: constructor Event takes as first argument (start) only integer
+            // constants.
+            Value arg0 = specialInvExpr.getArg(0);
+            IntConstant start = (IntConstant) arg0;
+            // logger.debug("The invoke expression has as first argument: " +
+            // invokeExpr.getArg(0).toString());
+            this.initializers.put(node, new EventInitializer(jInvStmt, uniqueNumber, start.value));
+          }
         }
       }
-      // for (ValueBox value : ut.getUseBoxes()) {
-      // if (value instanceof Local) {
-      // Local v = value;
-      // v.
-      // }
-      // }
-      // else if (ut instanceof Local){
-      // }
     }
-    // for (Node n : nodes) {
-
-    // }
-
-    return new LinkedList<Local>();
   }
 
   public Collection<EventInitializer> getInitializers(SootMethod method) {
