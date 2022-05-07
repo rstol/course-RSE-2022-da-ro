@@ -78,12 +78,12 @@ public class PointsToInitializer {
   }
 
   /**
-   * Convenience Method: Analyze initializers defined in body of method
+   * Convenience Method: Analyze initializers defined in body of method.
+   * Assume: parameters of method cannot contain Event initializer statements
    *
    * @param method
    */
-  void analyzeMethod(SootMethod method) {
-    // Assume: parameters of method cannot contain Event initializer statements
+  private void analyzeMethod(SootMethod method) {
     for (Unit ut : method.retrieveActiveBody().getUnits()) {
       if (ut instanceof JInvokeStmt) {
         JInvokeStmt jInvStmt = (JInvokeStmt) ut;
@@ -101,7 +101,8 @@ public class PointsToInitializer {
             IntConstant start = (IntConstant) arg0;
             // logger.debug("The invoke expression has as first argument: " +
             // invokeExpr.getArg(0).toString());
-            this.initializers.put(node, new EventInitializer(jInvStmt, uniqueNumber, start.value));
+            EventInitializer ei = new EventInitializer(jInvStmt, uniqueNumber, start.value);
+            this.initializers.put(node, ei);
           }
         }
       }
