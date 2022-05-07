@@ -19,129 +19,147 @@ import soot.jimple.InvokeExpr;
 
 /**
  * Convenience wrapper for numerical abstract elements in Apron.
- * 
+ *
  */
 public class NumericalStateWrapper {
 
-	private static final Logger logger = LoggerFactory.getLogger(NumericalStateWrapper.class);
+  private static final Logger logger = LoggerFactory.getLogger(NumericalStateWrapper.class);
 
-	// STATIC
+  // STATIC
 
-	public static NumericalStateWrapper bottom(Manager man, Environment env) {
-		try {
-			Abstract1 bot = new Abstract1(man, env, true);
-			return new NumericalStateWrapper(man, bot);
-		} catch (ApronException e) {
-			throw new RuntimeException(e);
-		}
-	}
+  public static NumericalStateWrapper bottom(Manager man, Environment env) {
+    try {
+      Abstract1 bot = new Abstract1(man, env, true);
+      return new NumericalStateWrapper(man, bot);
+    } catch (ApronException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
-	public static NumericalStateWrapper top(Manager man, Environment env) {
-		try {
-			Abstract1 top = new Abstract1(man, env);
-			return new NumericalStateWrapper(man, top);
-		} catch (ApronException e) {
-			throw new RuntimeException(e);
-		}
-	}
+  public static NumericalStateWrapper top(Manager man, Environment env) {
+    try {
+      Abstract1 top = new Abstract1(man, env);
+      return new NumericalStateWrapper(man, top);
+    } catch (ApronException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
-	// FIELDS
+  // FIELDS
 
-	/**
-	 * Wrapped abstract element
-	 */
-	private Abstract1 elem;
+  /**
+   * Wrapped abstract element
+   */
+  private Abstract1 elem;
 
-	/**
-	 * Manager for numerical abstract domain
-	 */
-	private final Manager man;
+  /**
+   * Manager for numerical abstract domain
+   */
+  private final Manager man;
 
-	// CONSTRUCTOR
+  // CONSTRUCTOR
 
-	/**
-	 * 
-	 * @param man  Apron abstract domain manager
-	 * @param elem Abstract Apron element
-	 */
-	public NumericalStateWrapper(Manager man, Abstract1 elem) {
-		this.man = man;
-		this.elem = elem;
-	}
+  /**
+   *
+   * @param man  Apron abstract domain manager
+   * @param elem Abstract Apron element
+   */
+  public NumericalStateWrapper(Manager man, Abstract1 elem) {
+    this.man = man;
+    this.elem = elem;
+  }
 
-	// FUNCTIONS
+  // FUNCTIONS
 
-	public Abstract1 get() {
-		return elem;
-	}
+  public Abstract1 get() {
+    return elem;
+  }
 
-	public void set(Abstract1 e) {
-		elem = e;
-	}
+  public void set(Abstract1 e) {
+    elem = e;
+  }
 
-	public NumericalStateWrapper copy() {
-		Abstract1 copy;
-		try {
-			copy = new Abstract1(man, this.elem);
-			return new NumericalStateWrapper(this.man, copy);
-		} catch (ApronException e) {
-			throw new RuntimeException(e);
-		}
-	}
+  public NumericalStateWrapper copy() {
+    Abstract1 copy;
+    try {
+      copy = new Abstract1(man, this.elem);
+      return new NumericalStateWrapper(this.man, copy);
+    } catch (ApronException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
-	/**
-	 * Copies this state into `other`
-	 * 
-	 * @param other
-	 */
-	public void copyInto(NumericalStateWrapper other) {
-		NumericalStateWrapper copy = this.copy();
-		other.elem = copy.elem;
-	}
+  /**
+   * Copies this state into `other`
+   *
+   * @param other
+   */
+  public void copyInto(NumericalStateWrapper other) {
+    NumericalStateWrapper copy = this.copy();
+    other.elem = copy.elem;
+  }
 
-	// TODO: MAYBE FILL THIS OUT: add convenience methods
+  // TODO: MAYBE FILL THIS OUT: add convenience methods
+  public NumericalStateWrapper join(NumericalStateWrapper other) {
+    try {
+      Abstract1 joined = this.elem.joinCopy(man, other.elem);
+      logger.debug("Joined: " + this.elem + " with " + other.elem + " = " + joined);
+      return new NumericalStateWrapper(man, joined);
+    } catch (ApronException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
-	// EQUALS, HASHCODE, TOSTRING
+  public NumericalStateWrapper widen(NumericalStateWrapper other) {
+    try {
+      Abstract1 widened = this.elem.widening(man, other.elem);
+      logger.debug(this.elem + "widened with " + other.elem + " = " + widened);
+      return new NumericalStateWrapper(man, widened);
+    } catch (ApronException e) {
+      throw new RuntimeException(e);
+    }
+  }
+  // EQUALS, HASHCODE, TOSTRING
 
-	@Override
-	public boolean equals(Object o) {
-		// needed by NumericalAnalysis
-		if (!(o instanceof NumericalStateWrapper)) {
-			return false;
-		}
-		NumericalStateWrapper w = (NumericalStateWrapper) o;
+  @Override
+  public boolean equals(Object o) {
+    // needed by NumericalAnalysis
+    if (!(o instanceof NumericalStateWrapper)) {
+      return false;
+    }
+    NumericalStateWrapper w = (NumericalStateWrapper) o;
 
-		Abstract1 t = w.get();
-		try {
-			// sanity check
-			if (elem.isEqual(man, t) && !elem.isIncluded(man, t)) {
-				throw new RuntimeException("VIOLATION");
-			}
+    Abstract1 t = w.get();
+    try {
+      // sanity check
+      if (elem.isEqual(man, t) && !elem.isIncluded(man, t)) {
+        throw new RuntimeException("VIOLATION");
+      }
 
-			return elem.isEqual(man, t);
-		} catch (ApronException e) {
-			throw new RuntimeException("isEqual failed");
-		}
-	}
+      return elem.isEqual(man, t);
+    } catch (ApronException e) {
+      throw new RuntimeException("isEqual failed");
+    }
+  }
 
-	@Override
-	public int hashCode() {
-		// implementation non-trivial but not needed
-		throw new RuntimeException(new NotImplementedException());
-	}
+  @Override
+  public int hashCode() {
+    // implementation non-trivial but not needed
+    throw new RuntimeException(new NotImplementedException());
+  }
 
-	@Override
-	public String toString() {
-		try {
-			if (elem == null) {
-				return "null";
-			} else if (elem.isTop(man)) {
-				return "<Top>";
-			} else {
-				return elem.toString();
-			}
-		} catch (ApronException e) {
-			throw new RuntimeException(e);
-		}
-	}
+  @Override
+  public String toString() {
+    try {
+      if (elem == null) {
+        return "null";
+      } else if (elem.isTop(man)) {
+        return "<Top>";
+      } else {
+        return elem.toString();
+      }
+    } catch (ApronException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }

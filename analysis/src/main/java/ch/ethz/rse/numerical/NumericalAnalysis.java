@@ -73,241 +73,317 @@ import soot.toolkits.scalar.ForwardBranchedFlowAnalysis;
  */
 public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStateWrapper> {
 
-	private static final Logger logger = LoggerFactory.getLogger(NumericalAnalysis.class);
+  private static final Logger logger = LoggerFactory.getLogger(NumericalAnalysis.class);
 
-	/**
-	 * the property we are verifying
-	 */
-	private final VerificationProperty property;
+  /**
+   * the property we are verifying
+   */
+  private final VerificationProperty property;
 
-	/**
-	 * the pointer analysis result we are verifying
-	 */
-	private final PointsToInitializer pointsTo;
+  /**
+   * the pointer analysis result we are verifying
+   */
+  private final PointsToInitializer pointsTo;
 
-	/**
-	 * all event initializers encountered until now
-	 */
-	private Set<EventInitializer> alreadyInit;
+  /**
+   * all event initializers encountered until now
+   */
+  private Set<EventInitializer> alreadyInit;
 
-	/**
-	 * number of times this loop head was encountered during analysis
-	 */
-	private HashMap<Unit, IntegerWrapper> loopHeads = new HashMap<Unit, IntegerWrapper>();
-	/**
-	 * Previously seen abstract state for each loop head
-	 */
-	private HashMap<Unit, NumericalStateWrapper> loopHeadState = new HashMap<Unit, NumericalStateWrapper>();
+  /**
+   * number of times this loop head was encountered during analysis
+   */
+  private HashMap<Unit, IntegerWrapper> loopHeads = new HashMap<Unit, IntegerWrapper>();
+  /**
+   * Previously seen abstract state for each loop head
+   */
+  private HashMap<Unit, NumericalStateWrapper> loopHeadState = new HashMap<Unit, NumericalStateWrapper>();
 
-	/**
-	 * Numerical abstract domain to use for analysis: Convex polyhedra
-	 */
-	public final Manager man = new Polka(true);
+  /**
+   * Numerical abstract domain to use for analysis: Convex polyhedra
+   */
+  public final Manager man = new Polka(true);
 
-	public final Environment env;
+  public final Environment env;
 
-	/**
-	 * We apply widening after updating the state at a given merge point for the
-	 * {@link WIDENING_THRESHOLD}th time
-	 */
-	private static final int WIDENING_THRESHOLD = 6;
+  /**
+   * We apply widening after updating the state at a given merge point for the
+   * {@link WIDENING_THRESHOLD}th time
+   */
+  private static final int WIDENING_THRESHOLD = 6;
 
-	/**
-	 * 
-	 * @param method   method to analyze
-	 * @param property the property we are verifying
-	 */
-	public NumericalAnalysis(SootMethod method, VerificationProperty property, PointsToInitializer pointsTo) {
-		super(SootHelper.getUnitGraph(method));
+  /**
+   *
+   * @param method   method to analyze
+   * @param property the property we are verifying
+   */
+  public NumericalAnalysis(SootMethod method, VerificationProperty property, PointsToInitializer pointsTo) {
+    super(SootHelper.getUnitGraph(method));
 
-		UnitGraph g = SootHelper.getUnitGraph(method);
+    UnitGraph g = SootHelper.getUnitGraph(method);
 
-		this.property = property;
+    this.property = property;
 
-		this.pointsTo = pointsTo;
+    this.pointsTo = pointsTo;
 
-		this.alreadyInit = new HashSet<EventInitializer>();
+    this.alreadyInit = new HashSet<EventInitializer>();
 
-		this.env = new EnvironmentGenerator(method, pointsTo).getEnvironment();
+    this.env = new EnvironmentGenerator(method, pointsTo).getEnvironment();
 
-		// initialize counts for loop heads
-		for (Loop l : new LoopNestTree(g.getBody())) {
-			loopHeads.put(l.getHead(), new IntegerWrapper(0));
-		}
+    // initialize counts for loop heads
+    for (Loop l : new LoopNestTree(g.getBody())) {
+      loopHeads.put(l.getHead(), new IntegerWrapper(0));
+    }
 
-		// perform analysis by calling into super-class
-		logger.info("Analyzing {} in {}", method.getName(), method.getDeclaringClass().getName());
-		doAnalysis(); // calls newInitialFlow, entryInitialFlow, merge, flowThrough, and stops when a fixed point is reached
-	}
+    // perform analysis by calling into super-class
+    logger.info("Analyzing {} in {}", method.getName(), method.getDeclaringClass().getName());
+    doAnalysis(); // calls newInitialFlow, entryInitialFlow, merge, flowThrough, and stops when a
+                  // fixed point is reached
+  }
 
-	/**
-	 * Report unhandled instructions, types, cases, etc.
-	 * 
-	 * @param task description of current task
-	 * @param what
-	 */
-	public static void unhandled(String task, Object what, boolean raiseException) {
-		String description = task + ": Can't handle " + what.toString() + " of type " + what.getClass().getName();
+  /**
+   * Report unhandled instructions, types, cases, etc.
+   *
+   * @param task description of current task
+   * @param what
+   */
+  public static void unhandled(String task, Object what, boolean raiseException) {
+    String description = task + ": Can't handle " + what.toString() + " of type " + what.getClass().getName();
 
-		if (raiseException) {
-			logger.error("Raising exception " + description);
-			throw new UnsupportedOperationException(description);
-		} else {
-			logger.error(description);
+    if (raiseException) {
+      logger.error("Raising exception " + description);
+      throw new UnsupportedOperationException(description);
+    } else {
+      logger.error(description);
 
-			// print stack trace
-			StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-			for (int i = 1; i < stackTrace.length; i++) {
-				logger.error(stackTrace[i].toString());
-			}
-		}
-	}
+      // print stack trace
+      StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+      for (int i = 1; i < stackTrace.length; i++) {
+        logger.error(stackTrace[i].toString());
+      }
+    }
+  }
 
-	@Override
-	protected void copy(NumericalStateWrapper source, NumericalStateWrapper dest) {
-		source.copyInto(dest);
-	}
+  @Override
+  protected void copy(NumericalStateWrapper source, NumericalStateWrapper dest) {
+    source.copyInto(dest);
+  }
 
-	@Override
-	protected NumericalStateWrapper newInitialFlow() {
-		// should be bottom (only entry flows are not bottom originally)
-		return NumericalStateWrapper.bottom(man, env);
-	}
+  @Override
+  protected NumericalStateWrapper newInitialFlow() {
+    // should be bottom (only entry flows are not bottom originally)
+    return NumericalStateWrapper.bottom(man, env);
+  }
 
-	@Override
-	protected NumericalStateWrapper entryInitialFlow() {
-		// state of entry points into function
-		NumericalStateWrapper ret = NumericalStateWrapper.top(man, env);
+  @Override
+  protected NumericalStateWrapper entryInitialFlow() {
+    // state of entry points into function
+    NumericalStateWrapper ret = NumericalStateWrapper.top(man, env);
 
-		// TODO: MAYBE FILL THIS OUT
+    // TODO: MAYBE FILL THIS OUT
 
-		return ret;
-	}
+    return ret;
+  }
 
-	@Override
-	protected void merge(Unit succNode, NumericalStateWrapper w1, NumericalStateWrapper w2, NumericalStateWrapper w3) {
-		// merge the two states from w1 and w2 and store the result into w3
-		logger.debug("in merge: " + succNode);
+  @Override
+  protected void merge(Unit succNode, NumericalStateWrapper w1, NumericalStateWrapper w2, NumericalStateWrapper w3) {
+    // merge the two states from w1 and w2 and store the result into w3
+    logger.debug("in merge: " + succNode);
+    IntegerWrapper headCount = loopHeads.get(succNode);
 
-		// TODO: FILL THIS OUT
-	}
+    if (headCount != null) {
+      // perform widening or join
+      if (headCount.value < WIDENING_THRESHOLD) {
+        w3.set(w1.join(w2).get());
+      } else {
+        w3.set(w1.widen(w2).get());
+      }
+      headCount.value++;
+    } else {
+      w3.set(w1.join(w2).get());
+    }
+  }
 
-	@Override
-	protected void merge(NumericalStateWrapper src1, NumericalStateWrapper src2, NumericalStateWrapper trg) {
-		// this method is never called, we are using the other merge instead
-		throw new UnsupportedOperationException();
-	}
+  @Override
+  protected void merge(NumericalStateWrapper src1, NumericalStateWrapper src2, NumericalStateWrapper trg) {
+    // this method is never called, we are using the other merge instead
+    throw new UnsupportedOperationException();
+  }
 
-	@Override
-	protected void flowThrough(NumericalStateWrapper inWrapper, Unit op, List<NumericalStateWrapper> fallOutWrappers,
-			List<NumericalStateWrapper> branchOutWrappers) {
-		logger.debug(inWrapper + " " + op + " => ?");
+  @Override
+  protected void flowThrough(NumericalStateWrapper inWrapper, Unit op, List<NumericalStateWrapper> fallOutWrappers,
+      List<NumericalStateWrapper> branchOutWrappers) {
+    logger.debug(inWrapper + " " + op + " => ?");
 
-		Stmt s = (Stmt) op;
+    Stmt s = (Stmt) op;
 
-		// fallOutWrapper is the wrapper for the state after running op,
-		// assuming we move to the next statement. Do not overwrite
-		// fallOutWrapper, but use its .set method instead
-		assert fallOutWrappers.size() <= 1;
-		NumericalStateWrapper fallOutWrapper = null;
-		if (fallOutWrappers.size() == 1) {
-			fallOutWrapper = fallOutWrappers.get(0);
-			inWrapper.copyInto(fallOutWrapper);
-		}
+    // fallOutWrapper is the wrapper for the state after running op,
+    // assuming we move to the next statement. Do not overwrite
+    // fallOutWrapper, but use its .set method instead
+    assert fallOutWrappers.size() <= 1;
+    NumericalStateWrapper fallOutWrapper = null;
+    if (fallOutWrappers.size() == 1) {
+      fallOutWrapper = fallOutWrappers.get(0);
+      inWrapper.copyInto(fallOutWrapper);
+    }
 
-		// branchOutWrapper is the wrapper for the state after running op,
-		// assuming we follow a conditional jump. It is therefore only relevant
-		// if op is a conditional jump. In this case, (i) fallOutWrapper
-		// contains the state after "falling out" of the statement, i.e., if the
-		// condition is false, and (ii) branchOutWrapper contains the state
-		// after "branching out" of the statement, i.e., if the condition is
-		// true.
-		assert branchOutWrappers.size() <= 1;
-		NumericalStateWrapper branchOutWrapper = null;
-		if (branchOutWrappers.size() == 1) {
-			branchOutWrapper = branchOutWrappers.get(0);
-			inWrapper.copyInto(branchOutWrapper);
-		}
+    // branchOutWrapper is the wrapper for the state after running op,
+    // assuming we follow a conditional jump. It is therefore only relevant
+    // if op is a conditional jump. In this case, (i) fallOutWrapper
+    // contains the state after "falling out" of the statement, i.e., if the
+    // condition is false, and (ii) branchOutWrapper contains the state
+    // after "branching out" of the statement, i.e., if the condition is
+    // true.
+    assert branchOutWrappers.size() <= 1;
+    NumericalStateWrapper branchOutWrapper = null;
+    if (branchOutWrappers.size() == 1) {
+      branchOutWrapper = branchOutWrappers.get(0);
+      inWrapper.copyInto(branchOutWrapper);
+    }
 
-		try {
-			if (s instanceof DefinitionStmt) {
-				// handle assignment
+    try {
+      if (s instanceof DefinitionStmt) {
+        // handle assignment
 
-				DefinitionStmt sd = (DefinitionStmt) s;
-				Value left = sd.getLeftOp();
-				Value right = sd.getRightOp();
+        DefinitionStmt sd = (DefinitionStmt) s;
+        Value left = sd.getLeftOp();
+        Value right = sd.getRightOp();
 
-				// We are not handling these cases:
-				if (!(left instanceof JimpleLocal)) {
-					unhandled("Assignment to non-local variable", left, true);
-				} else if (left instanceof JArrayRef) {
-					unhandled("Assignment to a non-local array variable", left, true);
-				} else if (left.getType() instanceof ArrayType) {
-					unhandled("Assignment to Array", left, true);
-				} else if (left.getType() instanceof DoubleType) {
-					unhandled("Assignment to double", left, true);
-				} else if (left instanceof JInstanceFieldRef) {
-					unhandled("Assignment to field", left, true);
-				}
+        // We are not handling these cases:
+        if (!(left instanceof JimpleLocal)) {
+          unhandled("Assignment to non-local variable", left, true);
+        } else if (left instanceof JArrayRef) {
+          unhandled("Assignment to a non-local array variable", left, true);
+        } else if (left.getType() instanceof ArrayType) {
+          unhandled("Assignment to Array", left, true);
+        } else if (left.getType() instanceof DoubleType) {
+          unhandled("Assignment to double", left, true);
+        } else if (left instanceof JInstanceFieldRef) {
+          unhandled("Assignment to field", left, true);
+        }
 
-				if (left.getType() instanceof RefType) {
-					// assignments to references are handled by pointer analysis
-					// no action necessary
-				} else {
-					// handle assignment
-					handleDef(fallOutWrapper, left, right);
-				}
+        if (left.getType() instanceof RefType) {
+          // assignments to references are handled by pointer analysis
+          // no action necessary
+        } else {
+          // handle assignment
+          handleDef(fallOutWrapper, left, right);
+        }
 
-			} else if (s instanceof JIfStmt) {
-				// handle if
+      } else if (s instanceof JIfStmt) {
+        // handle if
+        JIfStmt ifStmt = (JIfStmt) s;
+        Value cond = ifStmt.getCondition();
+        logger.debug("Condition type of if statement is: " + cond.getType());
+        AbstractBinopExpr condExpr = (AbstractBinopExpr) cond;
+        handleIf(condExpr, inWrapper, fallOutWrapper, branchOutWrapper);
 
-				// TODO: FILL THIS OUT
+      } else if (s instanceof JInvokeStmt) {
+        // handle invocations
+        JInvokeStmt jInvStmt = (JInvokeStmt) s;
+        InvokeExpr invokeExpr = jInvStmt.getInvokeExpr();
+        if (invokeExpr instanceof JVirtualInvokeExpr) {
+          handleInvoke(jInvStmt, fallOutWrapper);
+        } else if (invokeExpr instanceof JSpecialInvokeExpr) {
+          // initializer for object
+          handleInitialize(jInvStmt, fallOutWrapper);
+        } else {
+          unhandled("Unhandled invoke statement", invokeExpr, true);
+        }
+      } else if (s instanceof JGotoStmt) {
+        // safe to ignore
+      } else if (s instanceof JReturnVoidStmt) {
+        // safe to ignore
+      } else {
+        unhandled("Unhandled statement", s, true);
+      }
 
-			} else if (s instanceof JInvokeStmt) {
-				// handle invocations
-				JInvokeStmt jInvStmt = (JInvokeStmt) s;
-				InvokeExpr invokeExpr = jInvStmt.getInvokeExpr();
-				if (invokeExpr instanceof JVirtualInvokeExpr) {
-					handleInvoke(jInvStmt, fallOutWrapper);
-				} else if (invokeExpr instanceof JSpecialInvokeExpr) {
-					// initializer for object
-					handleInitialize(jInvStmt, fallOutWrapper);
-				} else {
-					unhandled("Unhandled invoke statement", invokeExpr, true);
-				}
-			} else if (s instanceof JGotoStmt) {
-				// safe to ignore
-			} else if (s instanceof JReturnVoidStmt) {
-				// safe to ignore
-			} else {
-				unhandled("Unhandled statement", s, true);
-			}
+      // log outcome
+      if (fallOutWrapper != null) {
+        logger.debug(inWrapper.get() + " " + s + " =>[fallout] " + fallOutWrapper);
+      }
+      if (branchOutWrapper != null) {
+        logger.debug(inWrapper.get() + " " + s + " =>[branchout] " + branchOutWrapper);
+      }
 
-			// log outcome
-			if (fallOutWrapper != null) {
-				logger.debug(inWrapper.get() + " " + s + " =>[fallout] " + fallOutWrapper);
-			}
-			if (branchOutWrapper != null) {
-				logger.debug(inWrapper.get() + " " + s + " =>[branchout] " + branchOutWrapper);
-			}
+    } catch (ApronException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
-		} catch (ApronException e) {
-			throw new RuntimeException(e);
-		}
-	}
+  public void handleInvoke(JInvokeStmt jInvStmt, NumericalStateWrapper fallOutWrapper) throws ApronException {
+    // TODO: MAYBE FILL THIS OUT
+  }
 
-	public void handleInvoke(JInvokeStmt jInvStmt, NumericalStateWrapper fallOutWrapper) throws ApronException {
-		// TODO: MAYBE FILL THIS OUT
-	}
+  public void handleInitialize(JInvokeStmt jInvStmt, NumericalStateWrapper fallOutWrapper) throws ApronException {
+    // TODO: MAYBE FILL THIS OUT
+  }
 
-	public void handleInitialize(JInvokeStmt jInvStmt, NumericalStateWrapper fallOutWrapper) throws ApronException {
-		// TODO: MAYBE FILL THIS OUT
-	}
+  // returns state of in after assignment
+  private void handleDef(NumericalStateWrapper outWrapper, Value left, Value right) throws ApronException {
+    // TODO: FILL THIS OUT
+  }
 
-	// returns state of in after assignment
-	private void handleDef(NumericalStateWrapper outWrapper, Value left, Value right) throws ApronException {
-		// TODO: FILL THIS OUT
-	}
+  private void handleIf(AbstractBinopExpr condExpr, NumericalStateWrapper inWrapper,
+      NumericalStateWrapper fallOutWrapper, NumericalStateWrapper branchOutWrapper) {
+    Value left = condExpr.getOp1();
+    Value right = condExpr.getOp2();
+    Abstract1 inState = inWrapper.get();
 
-	// TODO: MAYBE FILL THIS OUT: add convenience methods
+    Texpr1Node leftExpr = makeExprFromValue(left);
+    Texpr1Node rightExpr = makeExprFromValue(right);
+
+    Tcons1 fallOutConstraint = null;
+    Tcons1 branchOutConstraint = null;
+
+    // ordering of leftExpr and rightExpr is important
+    if (condExpr instanceof JEqExpr) {
+      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.DISEQ);
+      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.EQ);
+    } else if (condExpr instanceof JGeExpr) {
+      fallOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUP);
+      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUPEQ);
+    } else if (condExpr instanceof JGtExpr) {
+      fallOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUPEQ);
+      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUP);
+    } else if (condExpr instanceof JLeExpr) {
+      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUP);
+      branchOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUPEQ);
+    } else if (condExpr instanceof JLtExpr) {
+      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUPEQ);
+      branchOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUP);
+    } else if (condExpr instanceof JNeExpr) {
+      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.EQ);
+      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.DISEQ);
+    } else {
+      unhandled("Unhandled conditional statement", condExpr, true);
+    }
+    Abstract1 fallOutState = null;
+    Abstract1 branchOutState = null;
+    try {
+      fallOutState = inState.meetCopy(man, fallOutConstraint);
+      branchOutState = inState.meetCopy(man, branchOutConstraint);
+    } catch (ApronException e) {
+      e.printStackTrace();
+    }
+    fallOutWrapper.set(fallOutState);
+    branchOutWrapper.set(branchOutState);
+  }
+
+  // TODO: MAYBE FILL THIS OUT: add convenience methods
+  private Texpr1Node makeExprFromValue(Value v) {
+    Texpr1Node e = null;
+    if (v instanceof JimpleLocal) {
+      e = new Texpr1VarNode(((JimpleLocal) v).getName());
+    } else if (v instanceof IntConstant) {
+      e = new Texpr1CstNode(new MpqScalar(((IntConstant) v).value));
+    }
+    return e;
+  }
+
+  private Tcons1 getConstraint(Texpr1Node leftExpr, Texpr1Node rightExpr, int binOp) {
+    Texpr1BinNode op = new Texpr1BinNode(Texpr1BinNode.OP_SUB, leftExpr, rightExpr);
+    Tcons1 cons = new Tcons1(env, binOp, op);
+    return cons;
+  }
 }
