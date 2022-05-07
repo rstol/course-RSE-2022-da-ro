@@ -311,8 +311,24 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     }
   }
 
-  public void handleInvoke(JInvokeStmt jInvStmt, NumericalStateWrapper fallOutWrapper) throws ApronException {
-    // TODO: MAYBE FILL THIS OUT
+  public void handleInvoke(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
+    JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
+    InvokeExpr expr = jInvStmt.getInvokeExpr();
+    Local base = (Local) expr.getUseBoxes().get(0).getValue();
+    logger.debug("Base local variable " + base);
+    List<EventInitializer> events = pointsTo.pointsTo(base);
+    logger.debug(events.toString());
+    IntConstant arg1 = (IntConstant) expr.getArg(0);
+    Value arg2 = expr.getArg(1);
+    for (EventInitializer e : events) {
+      if (!alreadyInit.contains(e))
+        alreadyInit.add(e);
+      if (arg2 instanceof IntConstant) {
+
+      } else if (arg2 instanceof Local) {
+
+      }
+    }
   }
 
   public void handleInitialize(JInvokeStmt jInvStmt, NumericalStateWrapper fallOutWrapper) throws ApronException {
@@ -324,7 +340,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     Abstract1 inState = outWrapper.get();
     if (left instanceof JimpleLocal) {
       String leftLocal = ((JimpleLocal) left).getName();
-      Texpr1Node leftExpr = null;
       Texpr1Node rightExpr = null;
       Texpr1Intern expr = null;
       if (right instanceof IntConstant) {

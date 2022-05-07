@@ -9,6 +9,7 @@ import ch.ethz.rse.Event;
 
 public class If_Stmt_Test_Safe {
   public void m2(int i, int j) {
+    // TODO: needs work
     if (i > 2) {
       Event e = new Event(2, i);
       e.switchLights(i);
