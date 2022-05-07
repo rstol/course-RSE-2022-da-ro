@@ -44,6 +44,7 @@ import soot.jimple.MulExpr;
 import soot.jimple.ParameterRef;
 import soot.jimple.Stmt;
 import soot.jimple.SubExpr;
+import soot.jimple.VirtualInvokeExpr;
 import soot.jimple.internal.AbstractBinopExpr;
 import soot.jimple.internal.JAddExpr;
 import soot.jimple.internal.JArrayRef;
@@ -313,9 +314,29 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
   public void handleInvoke(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
     JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
-    InvokeExpr expr = jInvStmt.getInvokeExpr();
+    VirtualInvokeExpr expr = (VirtualInvokeExpr) jInvStmt.getInvokeExpr();
     Local base = (Local) expr.getUseBoxes().get(0).getValue();
     logger.debug("Base local variable " + base);
+    List<EventInitializer> events = pointsTo.pointsTo(base);
+    logger.debug(events.toString());
+    List<Value> args = expr.getArgs();
+    for (EventInitializer e : events) {
+      if (!alreadyInit.contains(e))
+        alreadyInit.add(e);
+      for (Value arg : args) {
+        if (arg instanceof IntConstant) {
+
+        } else if (arg instanceof Local) {
+
+        }
+      }
+    }
+  }
+
+  public void handleInitialize(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
+    JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
+    JSpecialInvokeExpr expr = (JSpecialInvokeExpr) jInvStmt.getInvokeExpr();
+    Local base = (Local) expr.getBase();
     List<EventInitializer> events = pointsTo.pointsTo(base);
     logger.debug(events.toString());
     IntConstant arg1 = (IntConstant) expr.getArg(0);
@@ -329,10 +350,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
       }
     }
-  }
-
-  public void handleInitialize(JInvokeStmt jInvStmt, NumericalStateWrapper fallOutWrapper) throws ApronException {
-    // TODO: MAYBE FILL THIS OUT
   }
 
   // returns state of in after assignment
