@@ -7,10 +7,11 @@ import ch.ethz.rse.Event;
 // AFTER_START SAFE
 // BEFORE_END SAFE
 
-public class Basic_Test_Safe {
+public class Int_Variables_Test_Safe {
 
-  public static void m1() {
-    Event e = new Event(2, 4);
+  public static void m1(int i, int j) {
+    int end = i;
+    Event e = new Event(1, end);
     e.switchLights(3);
   }
 }
