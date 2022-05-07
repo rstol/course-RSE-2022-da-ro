@@ -321,7 +321,41 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
   // returns state of in after assignment
   private void handleDef(NumericalStateWrapper outWrapper, Value left, Value right) throws ApronException {
-    // TODO: FILL THIS OUT
+    Abstract1 inState = outWrapper.get();
+    if (left instanceof JimpleLocal) {
+      String leftLocal = ((JimpleLocal) left).getName();
+      Texpr1Node leftExpr = null;
+      Texpr1Node rightExpr = null;
+      Texpr1Intern expr = null;
+      if (right instanceof IntConstant) {
+        rightExpr = new Texpr1CstNode(new MpqScalar(((IntConstant) right).value));
+        expr = new Texpr1Intern(env, rightExpr);
+        // maybe better to use .set than assign
+        inState.assign(man, leftLocal, expr, null);
+      } else if (right instanceof JimpleLocal) {
+        JimpleLocal rightLocal = (JimpleLocal) right;
+        if (SootHelper.isIntValue(rightLocal)) {
+          rightExpr = new Texpr1VarNode(rightLocal.getName());
+          expr = new Texpr1Intern(env, rightExpr);
+          inState.assign(man, leftLocal, expr, null);
+        }
+      } else if (right instanceof BinopExpr) {
+        Value op1, op2;
+        if (right instanceof JMulExpr) {
+          op1 = ((JMulExpr) right).getOp1();
+          op2 = ((JMulExpr) right).getOp2();
+          handleBinExpr(inState, op1, op2, Texpr1BinNode.OP_MUL, leftLocal);
+        } else if (right instanceof JSubExpr) {
+          op1 = ((JSubExpr) right).getOp1();
+          op2 = ((JSubExpr) right).getOp2();
+          handleBinExpr(inState, op1, op2, Texpr1BinNode.OP_SUB, leftLocal);
+        } else if (right instanceof JAddExpr) {
+          op1 = ((JAddExpr) right).getOp1();
+          op2 = ((JAddExpr) right).getOp2();
+          handleBinExpr(inState, op1, op2, Texpr1BinNode.OP_ADD, leftLocal);
+        }
+      }
+    }
   }
 
   private void handleIf(AbstractBinopExpr condExpr, NumericalStateWrapper inWrapper,
@@ -385,5 +419,18 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     Texpr1BinNode op = new Texpr1BinNode(Texpr1BinNode.OP_SUB, leftExpr, rightExpr);
     Tcons1 cons = new Tcons1(env, binOp, op);
     return cons;
+  }
+
+  private void handleBinExpr(Abstract1 inState, Value op1, Value op2, int op, String var) {
+    Texpr1Node leftExpr = makeExprFromValue(op1);
+    Texpr1Node rightExpr = makeExprFromValue(op2);
+    Texpr1BinNode bin = new Texpr1BinNode(Texpr1BinNode.OP_MUL, leftExpr, rightExpr);
+    Texpr1Intern expr = new Texpr1Intern(env, bin);
+    try {
+      inState.assign(man, var, expr, null);
+    } catch (ApronException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
   }
 }
