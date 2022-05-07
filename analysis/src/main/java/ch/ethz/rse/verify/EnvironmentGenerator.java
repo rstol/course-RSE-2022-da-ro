@@ -14,6 +14,7 @@ import ch.ethz.rse.utils.Constants;
 import soot.IntegerType;
 import soot.Local;
 import soot.PointsToAnalysis;
+import soot.SootHelper;
 import soot.SootMethod;
 import soot.Value;
 import soot.jimple.ParameterRef;
@@ -51,9 +52,7 @@ public class EnvironmentGenerator {
     this.method = method;
     this.pointsTo = pointsTo;
 
-    // populate this.ints
-
-    // TODO: FILL THIS OUT
+    this.populateInts();
 
     String ints_arr[] = Iterables.toArray(this.ints, String.class);
 
@@ -65,6 +64,14 @@ public class EnvironmentGenerator {
     return this.env;
   }
 
-  // TODO: MAYBE FILL THIS OUT: add convenience methods
-
+  // convenience method
+  private void populateInts() {
+    for (Local l : method.retrieveActiveBody().getLocals()) {
+      if (SootHelper.isIntValue(l)) {
+        ints.add(l.getName());
+      } else {
+        logger.debug("Local is not int and has type: " + l.getType());
+      }
+    }
+  }
 }
