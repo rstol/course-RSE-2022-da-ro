@@ -94,7 +94,8 @@ public class PointsToInitializer {
           // specialInvExpr.toString());
           Collection<Node> nodes = this.getAllocationNodes(specialInvExpr);
           for (Node node : nodes) {
-            int uniqueNumber = specialInvExpr.hashCode();
+            logger.debug("the left variable is: " + specialInvExpr.getUseBoxes().get(0).getValue());
+            int uniqueNumber = node.hashCode();
             // Assume: constructor Event takes as first argument (start) only integer
             // constants.
             Value arg0 = specialInvExpr.getArg(0);
