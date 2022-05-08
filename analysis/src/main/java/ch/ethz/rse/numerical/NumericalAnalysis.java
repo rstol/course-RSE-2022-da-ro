@@ -315,19 +315,33 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   public void handleInvoke(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
     JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
     VirtualInvokeExpr expr = (VirtualInvokeExpr) jInvStmt.getInvokeExpr();
-    Local base = (Local) expr.getUseBoxes().get(0).getValue();
-    logger.debug("Base local variable " + base);
-    List<EventInitializer> events = pointsTo.pointsTo(base);
-    logger.debug(events.toString());
-    List<Value> args = expr.getArgs();
-    for (EventInitializer e : events) {
-      if (!alreadyInit.contains(e))
-        alreadyInit.add(e);
-      for (Value arg : args) {
-        if (arg instanceof IntConstant) {
+    if (expr.getMethod().getName().equals(Constants.switchLightsFunctionName)) {
+      Local base = (Local) expr.getBase();
+      List<EventInitializer> events = pointsTo.pointsTo(base);
+      Value arg0 = expr.getArg(0); // switchLights only has one argument
 
-        } else if (arg instanceof Local) {
+      Texpr1Intern texpr = null;
+      if (arg0 instanceof IntConstant) {
+        Texpr1Node rightTexpr = new Texpr1CstNode(new MpqScalar(((IntConstant) arg0).value));
+        texpr = new Texpr1Intern(env, rightTexpr);
+      } else if (arg0 instanceof Local) {
+        JimpleLocal rightLocal = (JimpleLocal) arg0;
+        if (SootHelper.isIntValue(rightLocal)) {
+          Texpr1Node rightTexpr = new Texpr1VarNode(rightLocal.getName());
+          texpr = new Texpr1Intern(env, rightTexpr);
+        }
+      }
+      if (texpr != null) {
+        logger.debug("T node: " + texpr.toString());
+        for (EventInitializer e : events) {
+          if (!alreadyInit.contains(e))
+            alreadyInit.add(e);
+          logger.debug("Argument to function " + expr.getMethod() + " is " + arg0.toString());
+          if (arg0 instanceof IntConstant) {
 
+          } else if (arg0 instanceof Local) {
+
+          }
         }
       }
     }
@@ -336,18 +350,30 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   public void handleInitialize(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
     JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
     JSpecialInvokeExpr expr = (JSpecialInvokeExpr) jInvStmt.getInvokeExpr();
-    Local base = (Local) expr.getBase();
-    List<EventInitializer> events = pointsTo.pointsTo(base);
-    logger.debug(events.toString());
-    IntConstant arg1 = (IntConstant) expr.getArg(0);
-    Value arg2 = expr.getArg(1);
-    for (EventInitializer e : events) {
-      if (!alreadyInit.contains(e))
-        alreadyInit.add(e);
-      if (arg2 instanceof IntConstant) {
+    if (expr.getMethod().getName().equals(Constants.EventClassName)) {
+      Local base = (Local) expr.getBase();
+      List<EventInitializer> events = pointsTo.pointsTo(base);
+      IntConstant arg0 = (IntConstant) expr.getArg(0);
+      Value arg1 = expr.getArg(1);
 
-      } else if (arg2 instanceof Local) {
-
+      Texpr1Intern texpr = null;
+      if (arg1 instanceof IntConstant) {
+        Texpr1Node rightTexpr = new Texpr1CstNode(new MpqScalar(((IntConstant) arg1).value));
+        texpr = new Texpr1Intern(env, rightTexpr);
+      } else if (arg1 instanceof Local) {
+        JimpleLocal rightLocal = (JimpleLocal) arg1;
+        if (SootHelper.isIntValue(rightLocal)) {
+          Texpr1Node rightTexpr = new Texpr1VarNode(rightLocal.getName());
+          texpr = new Texpr1Intern(env, rightTexpr);
+        }
+      }
+      if (texpr != null) {
+        logger.debug("T node: " + texpr.toString());
+        for (EventInitializer e : events) {
+          if (!alreadyInit.contains(e)) {
+            alreadyInit.add(e);
+          }
+        }
       }
     }
   }
@@ -372,19 +398,12 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
           inState.assign(man, leftLocal, expr, null);
         }
       } else if (right instanceof BinopExpr) {
-        Value op1, op2;
         if (right instanceof JMulExpr) {
-          op1 = ((JMulExpr) right).getOp1();
-          op2 = ((JMulExpr) right).getOp2();
-          handleBinExpr(inState, op1, op2, Texpr1BinNode.OP_MUL, leftLocal);
+          handleBinExpr(inState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
         } else if (right instanceof JSubExpr) {
-          op1 = ((JSubExpr) right).getOp1();
-          op2 = ((JSubExpr) right).getOp2();
-          handleBinExpr(inState, op1, op2, Texpr1BinNode.OP_SUB, leftLocal);
+          handleBinExpr(inState, (JSubExpr) right, Texpr1BinNode.OP_SUB, leftLocal);
         } else if (right instanceof JAddExpr) {
-          op1 = ((JAddExpr) right).getOp1();
-          op2 = ((JAddExpr) right).getOp2();
-          handleBinExpr(inState, op1, op2, Texpr1BinNode.OP_ADD, leftLocal);
+          handleBinExpr(inState, (JSubExpr) right, Texpr1BinNode.OP_ADD, leftLocal);
         }
       }
     }
@@ -453,7 +472,9 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     return cons;
   }
 
-  private void handleBinExpr(Abstract1 inState, Value op1, Value op2, int op, String var) {
+  private void handleBinExpr(Abstract1 inState, AbstractBinopExpr right, int op, String var) {
+    Value op1 = right.getOp1();
+    Value op2 = right.getOp2();
     Texpr1Node leftExpr = makeExprFromValue(op1);
     Texpr1Node rightExpr = makeExprFromValue(op2);
     Texpr1BinNode bin = new Texpr1BinNode(Texpr1BinNode.OP_MUL, leftExpr, rightExpr);
