@@ -89,6 +89,8 @@ public class Verifier extends AVerifier {
       Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
 
       for (EventInitializer event : events) {
+        // TODO: maybe need to loop through multiple possible statements associated to
+        // this event
         logger.debug("Checking event " + event.toString() + " with invoke statement " + event.getStatement());
         JInvokeStmt invokeStmt = event.getStatement();
         Value start = invokeStmt.getInvokeExpr().getArg(0);
@@ -97,13 +99,15 @@ public class Verifier extends AVerifier {
         Lincons1 lincons1 = analysis.getConstraint(start, end, Lincons1.SUP);
         Abstract1 fallout = invokeToAbstract.get(event.getStatement());
         logger.debug("Fallout: " + fallout);
+        // The following fails because for some reason there is no mapping for the
+        // statement and therefore fallout is null
+
         // try {
         // fallout.meet(man, lincons1);
         // if (!fallout.isBottom(man))
         // // start - end > 0 => property not satisfied
         // return false;
         // } catch (ApronException e1) {
-        // // TODO Auto-generated catch block
         // e1.printStackTrace();
         // }
       }

@@ -364,8 +364,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     // The first argument of initializer is always an int constant
     logger.debug("Arguments to function " + expr + ": First arg " + expr.getArg(0) + " second arg "
         + expr.getArg(1));
-    invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
-    logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
 
     for (EventInitializer event : events) {
       Interval intervalArgStart = getInterval(expr.getArg(0), fallout);
@@ -382,8 +380,8 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       Interval intervalEvent = combineIntervals(intervalStart, intervalEnd);
       Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEvent);
 
-      // TODO: I : Should merge interval [start, end] with interval of `event'
-      // initializer
+      // TODO: Not sure what to do here should I merge the interval of the invoke
+      // of this handler with interval of `event' initializer?
       Interval intervalCombined = combineIntervals(eventIntervalCombined, argIntervalCombined);
       logger.debug("Event current interval: " + eventIntervalCombined);
       logger.debug("Event arg interval: " + argIntervalCombined);
@@ -396,9 +394,19 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       fallout.meet(man, lincons1);
       fallOutWrapper.set(fallout);
     }
+    invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
+    logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
   }
 
-  // returns state of in after assignment
+  /**
+   * TODO: This method needs testing
+   * Returns state of in after assignment
+   *
+   * @param outWrapper
+   * @param left
+   * @param right
+   * @throws ApronException
+   */
   private void handleDef(NumericalStateWrapper outWrapper, Value left, Value right) throws ApronException {
     Abstract1 inState = outWrapper.get();
     if (left instanceof JimpleLocal) {
@@ -429,6 +437,15 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     }
   }
 
+  /**
+   * TODO: this method needs testing
+   *
+   * @param condExpr
+   * @param inWrapper
+   * @param fallOutWrapper
+   * @param branchOutWrapper
+   * @throws ApronException
+   */
   private void handleIf(AbstractBinopExpr condExpr, NumericalStateWrapper inWrapper,
       NumericalStateWrapper fallOutWrapper, NumericalStateWrapper branchOutWrapper) throws ApronException {
     Value left = condExpr.getOp1();
