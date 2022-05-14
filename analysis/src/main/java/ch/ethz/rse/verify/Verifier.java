@@ -2,11 +2,21 @@ package ch.ethz.rse.verify;
 
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import apron.Abstract1;
+import apron.ApronException;
+import apron.Environment;
+import apron.Lincons1;
+import apron.Linexpr1;
+import apron.Linterm1;
+import apron.Manager;
 import apron.MpqScalar;
+import apron.Tcons1;
+import apron.Texpr1BinNode;
 import apron.Texpr1CstNode;
 import apron.Texpr1Node;
 import apron.Texpr1VarNode;
@@ -23,6 +33,8 @@ import soot.SootHelper;
 import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
+import soot.jimple.IntConstant;
+import soot.jimple.InvokeStmt;
 import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.internal.JSpecialInvokeExpr;
 import soot.jimple.internal.JVirtualInvokeExpr;
@@ -61,13 +73,41 @@ public class Verifier extends AVerifier {
 
   protected void runNumericalAnalysis(VerificationProperty property) {
     for (SootMethod method : this.c.getMethods()) {
-      new NumericalAnalysis(method, property, this.pointsTo);
+      NumericalAnalysis analysis = new NumericalAnalysis(method, property, this.pointsTo);
+      this.numericalAnalysis.put(method, analysis);
     }
   }
 
   @Override
   public boolean checkStartEndOrder() {
-    // TODO: FILL THIS OUT
+    for (SootMethod method : this.numericalAnalysis.keySet()) {
+      NumericalAnalysis analysis = this.numericalAnalysis.get(method);
+      Manager man = analysis.man;
+
+      Collection<EventInitializer> events = this.pointsTo.getInitializers(method);
+      // Multimap<EventInitializer, JInvokeStmt> eventInvoke = analysis.eventInvoke;
+      Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
+
+      for (EventInitializer event : events) {
+        logger.debug("Checking event " + event.toString() + " with invoke statement " + event.getStatement());
+        JInvokeStmt invokeStmt = event.getStatement();
+        Value start = invokeStmt.getInvokeExpr().getArg(0);
+        Value end = invokeStmt.getInvokeExpr().getArg(1);
+
+        Lincons1 lincons1 = analysis.getConstraint(start, end, Lincons1.SUP);
+        Abstract1 fallout = invokeToAbstract.get(event.getStatement());
+        logger.debug("Fallout: " + fallout);
+        // try {
+        // fallout.meet(man, lincons1);
+        // if (!fallout.isBottom(man))
+        // // start - end > 0 => property not satisfied
+        // return false;
+        // } catch (ApronException e1) {
+        // // TODO Auto-generated catch block
+        // e1.printStackTrace();
+        // }
+      }
+    }
     return true;
   }
 

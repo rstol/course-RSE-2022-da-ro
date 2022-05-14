@@ -3,6 +3,7 @@ package ch.ethz.rse.numerical;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -11,9 +12,14 @@ import org.slf4j.LoggerFactory;
 import apron.Abstract1;
 import apron.ApronException;
 import apron.Environment;
+import apron.Interval;
+import apron.Lincons1;
+import apron.Linexpr1;
+import apron.Linterm1;
 import apron.Manager;
 import apron.MpqScalar;
 import apron.Polka;
+import apron.StringVar;
 import apron.Tcons1;
 import apron.Texpr1BinNode;
 import apron.Texpr1CstNode;
@@ -113,6 +119,10 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
    */
   private static final int WIDENING_THRESHOLD = 6;
 
+  // Map invoke statements to their corresponding abstact value. Used for
+  // verification
+  public Map<JInvokeStmt, Abstract1> invokeToAbstract = new HashMap<JInvokeStmt, Abstract1>();
+
   /**
    *
    * @param method   method to analyze
@@ -137,7 +147,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     }
 
     // perform analysis by calling into super-class
-    logger.info("Analyzing {} in {}", method.getName(), method.getDeclaringClass().getName());
+    logger.debug("Analyzing {} in {}", method.getName(), method.getDeclaringClass().getName());
     doAnalysis(); // calls newInitialFlow, entryInitialFlow, merge, flowThrough, and stops when a
                   // fixed point is reached
   }
@@ -313,6 +323,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   }
 
   public void handleInvoke(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
+    Abstract1 fallout = fallOutWrapper.get();
     JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
     VirtualInvokeExpr expr = (VirtualInvokeExpr) jInvStmt.getInvokeExpr();
     if (expr.getMethod().getName().equals(Constants.switchLightsFunctionName)) {
@@ -320,61 +331,70 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       List<EventInitializer> events = pointsTo.pointsTo(base);
       Value arg0 = expr.getArg(0); // switchLights only has one argument
 
-      Texpr1Intern texpr = null;
-      if (arg0 instanceof IntConstant) {
-        Texpr1Node rightTexpr = new Texpr1CstNode(new MpqScalar(((IntConstant) arg0).value));
-        texpr = new Texpr1Intern(env, rightTexpr);
-      } else if (arg0 instanceof Local) {
-        JimpleLocal rightLocal = (JimpleLocal) arg0;
-        if (SootHelper.isIntValue(rightLocal)) {
-          Texpr1Node rightTexpr = new Texpr1VarNode(rightLocal.getName());
-          texpr = new Texpr1Intern(env, rightTexpr);
-        }
-      }
-      if (texpr != null) {
-        logger.debug("T node: " + texpr.toString());
-        for (EventInitializer e : events) {
-          if (!alreadyInit.contains(e))
-            alreadyInit.add(e);
-          logger.debug("Argument to function " + expr.getMethod() + " is " + arg0.toString());
-          if (arg0 instanceof IntConstant) {
+      for (EventInitializer event : events) {
+        logger.debug("Argument to function " + expr.getMethod() + " is " + arg0.toString());
+        JSpecialInvokeExpr eventExpr = (JSpecialInvokeExpr) event.getStatement().getInvokeExpr();
+        Interval intervalStart = getInterval(eventExpr.getArg(0), fallout);
+        Value end = eventExpr.getArg(1);
+        Interval intervalEnd = getInterval(eventExpr.getArg(1), fallout);
+        Interval intervalEvent = combineIntervals(intervalStart, intervalEnd);
 
-          } else if (arg0 instanceof Local) {
-
-          }
-        }
+        Interval intervalArg = getInterval(arg0, fallout);
+        Interval intervalCombined = combineIntervals(intervalArg, intervalEvent);
+        logger.debug("Event interval: " + intervalEvent);
+        logger.debug("Arg interval : " + intervalArg);
+        logger.debug("Combined interval: " + intervalCombined);
+        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
+            new Linterm1[] { new Linterm1(end.toString(), new MpqScalar(-1)) },
+            intervalCombined));
+        fallout.forget(man, end.toString(), false);
+        fallout.meet(man, lincons1);
+        fallOutWrapper.set(fallout);
       }
+      invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
     }
   }
 
   public void handleInitialize(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
+    Abstract1 fallout = fallOutWrapper.get();
     JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
     JSpecialInvokeExpr expr = (JSpecialInvokeExpr) jInvStmt.getInvokeExpr();
-    if (expr.getMethod().getName().equals(Constants.EventClassName)) {
-      Local base = (Local) expr.getBase();
-      List<EventInitializer> events = pointsTo.pointsTo(base);
-      IntConstant arg0 = (IntConstant) expr.getArg(0);
-      Value arg1 = expr.getArg(1);
+    Local base = (Local) expr.getBase();
+    List<EventInitializer> events = this.pointsTo.pointsTo(base);
+    // The first argument of initializer is always an int constant
+    logger.debug("Arguments to function " + expr + ": First arg " + expr.getArg(0) + " second arg "
+        + expr.getArg(1));
+    invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
+    logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
 
-      Texpr1Intern texpr = null;
-      if (arg1 instanceof IntConstant) {
-        Texpr1Node rightTexpr = new Texpr1CstNode(new MpqScalar(((IntConstant) arg1).value));
-        texpr = new Texpr1Intern(env, rightTexpr);
-      } else if (arg1 instanceof Local) {
-        JimpleLocal rightLocal = (JimpleLocal) arg1;
-        if (SootHelper.isIntValue(rightLocal)) {
-          Texpr1Node rightTexpr = new Texpr1VarNode(rightLocal.getName());
-          texpr = new Texpr1Intern(env, rightTexpr);
-        }
+    for (EventInitializer event : events) {
+      Interval intervalArgStart = getInterval(expr.getArg(0), fallout);
+      Interval intervalArgEnd = getInterval(expr.getArg(1), fallout);
+      Interval argIntervalCombined = combineIntervals(intervalArgStart, intervalArgEnd);
+      if (!alreadyInit.contains(event)) {
+        alreadyInit.add(event);
+        // TODO:
       }
-      if (texpr != null) {
-        logger.debug("T node: " + texpr.toString());
-        for (EventInitializer e : events) {
-          if (!alreadyInit.contains(e)) {
-            alreadyInit.add(e);
-          }
-        }
-      }
+      JSpecialInvokeExpr eventExpr = (JSpecialInvokeExpr) event.getStatement().getInvokeExpr();
+      Interval intervalStart = getInterval(eventExpr.getArg(0), fallout);
+      Value end = eventExpr.getArg(1);
+      Interval intervalEnd = getInterval(end, fallout);
+      Interval intervalEvent = combineIntervals(intervalStart, intervalEnd);
+      Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEvent);
+
+      // TODO: I : Should merge interval [start, end] with interval of `event'
+      // initializer
+      Interval intervalCombined = combineIntervals(eventIntervalCombined, argIntervalCombined);
+      logger.debug("Event current interval: " + eventIntervalCombined);
+      logger.debug("Event arg interval: " + argIntervalCombined);
+      logger.debug("Combined interval: " + intervalCombined);
+
+      Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
+          new Linterm1[] { new Linterm1(end.toString(), new MpqScalar(-1)) },
+          intervalCombined));
+      fallout.forget(man, end.toString(), false);
+      fallout.meet(man, lincons1);
+      fallOutWrapper.set(fallout);
     }
   }
 
@@ -410,68 +430,107 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   }
 
   private void handleIf(AbstractBinopExpr condExpr, NumericalStateWrapper inWrapper,
-      NumericalStateWrapper fallOutWrapper, NumericalStateWrapper branchOutWrapper) {
+      NumericalStateWrapper fallOutWrapper, NumericalStateWrapper branchOutWrapper) throws ApronException {
     Value left = condExpr.getOp1();
     Value right = condExpr.getOp2();
     Abstract1 inState = inWrapper.get();
 
-    Texpr1Node leftExpr = makeExprFromValue(left);
-    Texpr1Node rightExpr = makeExprFromValue(right);
+    Lincons1 fallOutConstraint = null;
+    Lincons1 branchOutConstraint = null;
 
-    Tcons1 fallOutConstraint = null;
-    Tcons1 branchOutConstraint = null;
-
-    // ordering of leftExpr and rightExpr is important
     if (condExpr instanceof JEqExpr) {
-      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.DISEQ);
-      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.EQ);
+      fallOutConstraint = getConstraint(left, right, Lincons1.DISEQ);
+      branchOutConstraint = getConstraint(left, right, Lincons1.EQ);
     } else if (condExpr instanceof JGeExpr) {
-      fallOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUP);
-      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUPEQ);
+      fallOutConstraint = getConstraint(right, left, Lincons1.SUP);
+      branchOutConstraint = getConstraint(left, right, Lincons1.SUPEQ);
     } else if (condExpr instanceof JGtExpr) {
-      fallOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUPEQ);
-      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUP);
+      fallOutConstraint = getConstraint(right, left, Lincons1.SUPEQ);
+      branchOutConstraint = getConstraint(left, right, Lincons1.SUP);
     } else if (condExpr instanceof JLeExpr) {
-      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUP);
-      branchOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUPEQ);
+      fallOutConstraint = getConstraint(left, right, Lincons1.SUP);
+      branchOutConstraint = getConstraint(right, left, Lincons1.SUPEQ);
     } else if (condExpr instanceof JLtExpr) {
-      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.SUPEQ);
-      branchOutConstraint = getConstraint(rightExpr, leftExpr, Tcons1.SUP);
+      fallOutConstraint = getConstraint(left, right, Lincons1.SUPEQ);
+      branchOutConstraint = getConstraint(right, left, Lincons1.SUP);
     } else if (condExpr instanceof JNeExpr) {
-      fallOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.EQ);
-      branchOutConstraint = getConstraint(leftExpr, rightExpr, Tcons1.DISEQ);
+      fallOutConstraint = getConstraint(left, right, Lincons1.EQ);
+      branchOutConstraint = getConstraint(left, right, Lincons1.DISEQ);
     } else {
       unhandled("Unhandled conditional statement", condExpr, true);
     }
-    Abstract1 fallOutState = null;
-    Abstract1 branchOutState = null;
-    try {
-      fallOutState = inState.meetCopy(man, fallOutConstraint);
-      branchOutState = inState.meetCopy(man, branchOutConstraint);
-    } catch (ApronException e) {
-      e.printStackTrace();
-    }
-    fallOutWrapper.set(fallOutState);
-    branchOutWrapper.set(branchOutState);
+
+    fallOutWrapper.set(inState.meetCopy(man, fallOutConstraint));
+    branchOutWrapper.set(inState.meetCopy(man, branchOutConstraint));
   }
 
-  // TODO: MAYBE FILL THIS OUT: add convenience methods
-  private Texpr1Node makeExprFromValue(Value v) {
+  // TODO: Remove this method
+  public Texpr1Node makeExprFromValue(Value v) {
     Texpr1Node e = null;
     if (v instanceof JimpleLocal) {
-      e = new Texpr1VarNode(((JimpleLocal) v).getName());
+      if (SootHelper.isIntValue(v)) {
+        e = new Texpr1VarNode(((JimpleLocal) v).getName());
+      }
     } else if (v instanceof IntConstant) {
       e = new Texpr1CstNode(new MpqScalar(((IntConstant) v).value));
+    } else {
+      throw new UnsupportedOperationException("Can't handle this type of argument");
     }
     return e;
   }
 
-  private Tcons1 getConstraint(Texpr1Node leftExpr, Texpr1Node rightExpr, int binOp) {
-    Texpr1BinNode op = new Texpr1BinNode(Texpr1BinNode.OP_SUB, leftExpr, rightExpr);
-    Tcons1 cons = new Tcons1(env, binOp, op);
-    return cons;
+  private void setLinexprWithValue(Value v, Linexpr1 linexpr1, int sign) {
+    if (v instanceof JimpleLocal) {
+      if (SootHelper.isIntValue(v)) {
+        linexpr1.setCoeff(new StringVar(((JimpleLocal) v).getName()), new MpqScalar(sign));
+      }
+    } else if (v instanceof IntConstant) {
+      linexpr1.setCst(new MpqScalar(sign * ((IntConstant) v).value));
+    } else {
+      throw new UnsupportedOperationException("Can't handle this type of argument");
+    }
   }
 
+  public Lincons1 getConstraint(Value op1, Value op2, int binOp) {
+    Linexpr1 linexpr1 = new Linexpr1(env);
+    setLinexprWithValue(op1, linexpr1, 1);
+    setLinexprWithValue(op2, linexpr1, -1);
+    return new Lincons1(binOp, linexpr1);
+  }
+
+  public Interval getInterval(Object obj, Abstract1 elem) throws ApronException {
+    if (obj instanceof Local) {
+      return elem.getBound(man, ((Local) obj).getName());
+    } else if (obj instanceof ParameterRef) {
+      // Parameters are unknown and can thus TOP
+      Interval interval = new Interval();
+      interval.setTop();
+      return interval;
+    } else if (obj instanceof IntConstant) {
+      // For convenience, integers are point intervals.
+      MpqScalar value = new MpqScalar(((IntConstant) obj).value);
+      return new Interval(value, value);
+    } else {
+      return null;
+    }
+  }
+
+  public Interval combineIntervals(Interval i1, Interval i2) {
+    Interval intervalCombined = new Interval();
+    if (i1.inf().cmp(i2.inf()) == 1) {
+      intervalCombined.setInf(i2.inf());
+    } else {
+      intervalCombined.setInf(i1.inf());
+    }
+    if (i1.sup().cmp(i2.sup()) == 1) {
+      intervalCombined.setSup(i1.sup());
+    } else {
+      intervalCombined.setSup(i2.sup());
+    }
+    return intervalCombined;
+  }
+
+  // TODO: Remove this method
   private void handleBinExpr(Abstract1 inState, AbstractBinopExpr right, int op, String var) {
     Value op1 = right.getOp1();
     Value op2 = right.getOp2();
