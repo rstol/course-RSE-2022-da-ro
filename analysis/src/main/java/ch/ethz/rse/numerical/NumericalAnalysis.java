@@ -418,6 +418,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
           inState.assign(man, leftLocal, expr, null);
         }
       } else if (right instanceof BinopExpr) {
+        // TODO: use Linterm in this implementation
         if (right instanceof JMulExpr) {
           handleBinExpr(inState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
         } else if (right instanceof JSubExpr) {
@@ -473,6 +474,21 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     branchOutWrapper.set(inState.meetCopy(man, branchOutConstraint));
   }
 
+  // TODO: Remove this method
+  public Texpr1Node makeExprFromValue(Value v) {
+    Texpr1Node e = null;
+    if (v instanceof JimpleLocal) {
+      if (SootHelper.isIntValue(v)) {
+        e = new Texpr1VarNode(((JimpleLocal) v).getName());
+      }
+    } else if (v instanceof IntConstant) {
+      e = new Texpr1CstNode(new MpqScalar(((IntConstant) v).value));
+    } else {
+      throw new UnsupportedOperationException("Can't handle this type of argument");
+    }
+    return e;
+  }
+
   private void setLinexprWithValue(Value v, Linexpr1 linexpr1, int sign) {
     if (v instanceof JimpleLocal) {
       if (SootHelper.isIntValue(v)) {
@@ -524,5 +540,21 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       intervalCombined.setSup(i2.sup);
     }
     return intervalCombined;
+  }
+
+  // TODO: Remove this method
+  private void handleBinExpr(Abstract1 inState, AbstractBinopExpr right, int op, String var) {
+    Value op1 = right.getOp1();
+    Value op2 = right.getOp2();
+    Texpr1Node leftExpr = makeExprFromValue(op1);
+    Texpr1Node rightExpr = makeExprFromValue(op2);
+    Texpr1BinNode bin = new Texpr1BinNode(Texpr1BinNode.OP_MUL, leftExpr, rightExpr);
+    Texpr1Intern expr = new Texpr1Intern(env, bin);
+    try {
+      inState.assign(man, var, expr, null);
+    } catch (ApronException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
   }
 }
