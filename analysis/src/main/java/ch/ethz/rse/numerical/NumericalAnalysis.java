@@ -330,24 +330,20 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       Local base = (Local) expr.getBase();
       List<EventInitializer> events = pointsTo.pointsTo(base);
       Value arg0 = expr.getArg(0); // switchLights only has one argument
+      Interval intervalArg = getInterval(arg0, fallout);
 
       for (EventInitializer event : events) {
-        logger.debug("Argument to function " + expr.getMethod() + " is " + arg0.toString());
-        JSpecialInvokeExpr eventExpr = (JSpecialInvokeExpr) event.getStatement().getInvokeExpr();
-        Interval intervalStart = getInterval(eventExpr.getArg(0), fallout);
-        Value end = eventExpr.getArg(1);
-        Interval intervalEnd = getInterval(eventExpr.getArg(1), fallout);
-        Interval intervalEvent = combineIntervals(intervalStart, intervalEnd);
+        event.addInvoke(jInvStmt);
 
-        Interval intervalArg = getInterval(arg0, fallout);
-        Interval intervalCombined = combineIntervals(intervalArg, intervalEvent);
+        Interval intervalEvent = getInterval(event.getVar(), fallout);
+        Interval newIntervalCombined = combineIntervals(intervalArg, intervalEvent);
         logger.debug("Event interval: " + intervalEvent);
         logger.debug("Arg interval : " + intervalArg);
-        logger.debug("Combined interval: " + intervalCombined);
+        logger.debug("Combined interval: " + newIntervalCombined);
         Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
-            new Linterm1[] { new Linterm1(end.toString(), new MpqScalar(-1)) },
-            intervalCombined));
-        fallout.forget(man, end.toString(), false);
+            new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(-1)) },
+            newIntervalCombined));
+        fallout.forget(man, event.getVar(), false);
         fallout.meet(man, lincons1);
         fallOutWrapper.set(fallout);
       }
@@ -361,41 +357,37 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     JSpecialInvokeExpr expr = (JSpecialInvokeExpr) jInvStmt.getInvokeExpr();
     Local base = (Local) expr.getBase();
     List<EventInitializer> events = this.pointsTo.pointsTo(base);
-    // The first argument of initializer is always an int constant
-    logger.debug("Arguments to function " + expr + ": First arg " + expr.getArg(0) + " second arg "
-        + expr.getArg(1));
 
-    for (EventInitializer event : events) {
-      Interval intervalArgStart = getInterval(expr.getArg(0), fallout);
-      Interval intervalArgEnd = getInterval(expr.getArg(1), fallout);
-      Interval argIntervalCombined = combineIntervals(intervalArgStart, intervalArgEnd);
-      if (!alreadyInit.contains(event)) {
-        alreadyInit.add(event);
-        // TODO:
+    // only handle initializer of our Event class
+    if (expr.getMethod().getDeclaringClass().getName().equals(Constants.EventClassName)) {
+      logger.debug("Initializer: " + expr.getMethod() + " args: " + expr.getArg(0) + ", " + expr.getArg(1));
+      Interval intervalStart = getInterval(expr.getArg(0), fallout);
+      Interval intervalEnd = getInterval(expr.getArg(1), fallout);
+      logger.debug("Start interval: " + intervalStart);
+      logger.debug("End interval: " + intervalEnd);
+      Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEnd);
+      for (EventInitializer event : events) {
+        if (!alreadyInit.contains(event)) {
+          alreadyInit.add(event);
+          event.addInvoke(jInvStmt);
+
+          Interval intervalEvent = getInterval(event.getVar(), fallout);
+          Interval newIntervalCombined = combineIntervals(eventIntervalCombined, intervalEvent);
+          logger.debug("Event new interval: " + eventIntervalCombined);
+          logger.debug("Event old interval: " + intervalEvent);
+          logger.debug("Combined interval: " + newIntervalCombined);
+
+          Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
+              new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(-1)) },
+              newIntervalCombined));
+          fallout.forget(man, event.getVar(), false);
+          fallout.meet(man, lincons1);
+          fallOutWrapper.set(fallout);
+        }
       }
-      JSpecialInvokeExpr eventExpr = (JSpecialInvokeExpr) event.getStatement().getInvokeExpr();
-      Interval intervalStart = getInterval(eventExpr.getArg(0), fallout);
-      Value end = eventExpr.getArg(1);
-      Interval intervalEnd = getInterval(end, fallout);
-      Interval intervalEvent = combineIntervals(intervalStart, intervalEnd);
-      Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEvent);
-
-      // TODO: Not sure what to do here should I merge the interval of the invoke
-      // of this handler with interval of `event' initializer?
-      Interval intervalCombined = combineIntervals(eventIntervalCombined, argIntervalCombined);
-      logger.debug("Event current interval: " + eventIntervalCombined);
-      logger.debug("Event arg interval: " + argIntervalCombined);
-      logger.debug("Combined interval: " + intervalCombined);
-
-      Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
-          new Linterm1[] { new Linterm1(end.toString(), new MpqScalar(-1)) },
-          intervalCombined));
-      fallout.forget(man, end.toString(), false);
-      fallout.meet(man, lincons1);
-      fallOutWrapper.set(fallout);
+      invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
+      logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
     }
-    invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
-    logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
   }
 
   /**
@@ -527,6 +519,8 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       // For convenience, integers are point intervals.
       MpqScalar value = new MpqScalar(((IntConstant) obj).value);
       return new Interval(value, value);
+    } else if (obj instanceof String) {
+      return elem.getBound(man, (String) obj);
     } else {
       return null;
     }
@@ -534,15 +528,15 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
   public Interval combineIntervals(Interval i1, Interval i2) {
     Interval intervalCombined = new Interval();
-    if (i1.inf().cmp(i2.inf()) == 1) {
-      intervalCombined.setInf(i2.inf());
+    if (i1.inf.cmp(i2.inf) == 1) {
+      intervalCombined.setInf(i2.inf);
     } else {
-      intervalCombined.setInf(i1.inf());
+      intervalCombined.setInf(i1.inf);
     }
-    if (i1.sup().cmp(i2.sup()) == 1) {
-      intervalCombined.setSup(i1.sup());
+    if (i1.sup.cmp(i2.sup) == 1) {
+      intervalCombined.setSup(i1.sup);
     } else {
-      intervalCombined.setSup(i2.sup());
+      intervalCombined.setSup(i2.sup);
     }
     return intervalCombined;
   }

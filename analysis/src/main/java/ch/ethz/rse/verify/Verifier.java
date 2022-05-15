@@ -34,7 +34,9 @@ import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
 import soot.jimple.IntConstant;
+import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
+import soot.jimple.SpecialInvokeExpr;
 import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.internal.JSpecialInvokeExpr;
 import soot.jimple.internal.JVirtualInvokeExpr;
@@ -89,27 +91,32 @@ public class Verifier extends AVerifier {
       Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
 
       for (EventInitializer event : events) {
-        // TODO: maybe need to loop through multiple possible statements associated to
-        // this event
-        logger.debug("Checking event " + event.toString() + " with invoke statement " + event.getStatement());
-        JInvokeStmt invokeStmt = event.getStatement();
-        Value start = invokeStmt.getInvokeExpr().getArg(0);
-        Value end = invokeStmt.getInvokeExpr().getArg(1);
+        Collection<JInvokeStmt> invokes = event.getInvokes();
 
-        Lincons1 lincons1 = analysis.getConstraint(start, end, Lincons1.SUP);
-        Abstract1 fallout = invokeToAbstract.get(event.getStatement());
-        logger.debug("Fallout: " + fallout);
-        // The following fails because for some reason there is no mapping for the
-        // statement and therefore fallout is null
+        for (JInvokeStmt invokeStmt : invokes) {
+          InvokeExpr expr = invokeStmt.getInvokeExpr();
+          // only analyze constructor invokes
+          if (expr instanceof SpecialInvokeExpr) {
+            logger.debug("Checking event " + event.toString() + " with invoke statement " + invokeStmt);
+            Value start = expr.getArg(0);
+            Value end = expr.getArg(1);
 
-        // try {
-        // fallout.meet(man, lincons1);
-        // if (!fallout.isBottom(man))
-        // // start - end > 0 => property not satisfied
-        // return false;
-        // } catch (ApronException e1) {
-        // e1.printStackTrace();
-        // }
+            Lincons1 lincons1 = analysis.getConstraint(start, end, Lincons1.SUP);
+            Abstract1 fallout = invokeToAbstract.get(invokeStmt);
+            logger.debug("Fallout: " + fallout);
+            // The following fails because for some reason there is no mapping for the
+            // statement and therefore fallout is null
+
+            try {
+              fallout.meet(man, lincons1);
+              if (!fallout.isBottom(man))
+                // start - end > 0 => property not satisfied
+                return false;
+            } catch (ApronException e1) {
+              e1.printStackTrace();
+            }
+          }
+        }
       }
     }
     return true;

@@ -6,11 +6,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import ch.ethz.rse.utils.Constants;
 import soot.Local;
@@ -71,9 +71,6 @@ public class PointsToInitializer {
 
       // populate data structures perMethod and initializers
       analyzeMethod(method);
-      for (EventInitializer ei : this.initializers.values()) {
-        perMethod.put(method, ei);
-      }
     }
   }
 
@@ -90,20 +87,20 @@ public class PointsToInitializer {
         InvokeExpr invokeExpr = jInvStmt.getInvokeExpr();
         if (invokeExpr instanceof JSpecialInvokeExpr) {
           JSpecialInvokeExpr specialInvExpr = (JSpecialInvokeExpr) invokeExpr;
-          // logger.debug("Analyzing the JSpecialInvokeExpr " +
-          // specialInvExpr.toString());
           Collection<Node> nodes = this.getAllocationNodes(specialInvExpr);
           for (Node node : nodes) {
-            logger.debug("the left variable is: " + specialInvExpr.getUseBoxes().get(0).getValue());
+            Value base = specialInvExpr.getBase();
+            logger.debug("The base variable for the event initializer  " + specialInvExpr + " is " + base);
             int uniqueNumber = node.hashCode();
             // Assume: constructor Event takes as first argument (start) only integer
             // constants.
             Value arg0 = specialInvExpr.getArg(0);
             IntConstant start = (IntConstant) arg0;
             // logger.debug("The invoke expression has as first argument: " +
-            // invokeExpr.getArg(0).toString());
-            EventInitializer ei = new EventInitializer(jInvStmt, uniqueNumber, start.value);
-            this.initializers.put(node, ei);
+            // invokeExpr.getArg(0));
+            EventInitializer event = new EventInitializer(jInvStmt, uniqueNumber, start.value, base.toString());
+            this.initializers.put(node, event);
+            this.perMethod.put(method, event);
           }
         }
       }

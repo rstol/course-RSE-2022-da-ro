@@ -70,7 +70,8 @@ public class EnvironmentGenerator {
       if (SootHelper.isIntValue(l)) {
         ints.add(l.getName());
       } else {
-        logger.debug("Local is not int and has type: " + l.getType());
+        ints.add(l.getName());
+        // logger.debug("Local is not int and has type: " + l.getType());
       }
     }
   }
