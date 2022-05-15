@@ -103,10 +103,6 @@ public class Verifier extends AVerifier {
 
             Lincons1 lincons1 = analysis.getConstraint(start, end, Lincons1.SUP);
             Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-            logger.debug("Fallout: " + fallout);
-            // The following fails because for some reason there is no mapping for the
-            // statement and therefore fallout is null
-
             try {
               fallout.meet(man, lincons1);
               if (!fallout.isBottom(man))
