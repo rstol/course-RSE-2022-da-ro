@@ -6,16 +6,8 @@ import org.slf4j.LoggerFactory;
 import apron.Abstract1;
 import apron.ApronException;
 import apron.Environment;
-import apron.Interval;
 import apron.Manager;
 import apron.NotImplementedException;
-import apron.Tcons1;
-import apron.Texpr1Intern;
-import soot.Local;
-import soot.SootHelper;
-import soot.Value;
-import soot.jimple.IntConstant;
-import soot.jimple.InvokeExpr;
 
 /**
  * Convenience wrapper for numerical abstract elements in Apron.

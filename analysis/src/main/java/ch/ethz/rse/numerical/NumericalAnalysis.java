@@ -20,7 +20,6 @@ import apron.Manager;
 import apron.MpqScalar;
 import apron.Polka;
 import apron.StringVar;
-import apron.Tcons1;
 import apron.Texpr1BinNode;
 import apron.Texpr1CstNode;
 import apron.Texpr1Intern;
@@ -121,7 +120,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
   // Map invoke statements to their corresponding abstact value. Used for
   // verification
-  public Map<JInvokeStmt, Abstract1> invokeToAbstract = new HashMap<JInvokeStmt, Abstract1>();
+  public final Map<JInvokeStmt, Abstract1> invokeToAbstract = new HashMap<JInvokeStmt, Abstract1>();
 
   /**
    *
@@ -365,33 +364,25 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       Interval intervalEnd = getInterval(expr.getArg(1), fallout);
       logger.debug("Start interval: " + intervalStart);
       logger.debug("End interval: " + intervalEnd);
-      Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEnd);
+      Interval eventIntervalCombined = new Interval(intervalStart.inf, intervalEnd.sup);
+      logger.debug("Event interval combined: " + eventIntervalCombined);
       for (EventInitializer event : events) {
+        event.addInvoke(jInvStmt);
         if (!alreadyInit.contains(event)) {
           alreadyInit.add(event);
-          event.addInvoke(jInvStmt);
-
-          Interval intervalEvent = getInterval(event.getVar(), fallout);
-          Interval newIntervalCombined = combineIntervals(eventIntervalCombined, intervalEvent);
-          logger.debug("Event new interval: " + eventIntervalCombined);
-          logger.debug("Event old interval: " + intervalEvent);
-          logger.debug("Combined interval: " + newIntervalCombined);
-
-          Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
-              new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(-1)) },
-              newIntervalCombined));
-          fallout.forget(man, event.getVar(), false);
-          fallout.meet(man, lincons1);
+          Linexpr1 linexpr1 = new Linexpr1(env,
+              new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(0)) }, eventIntervalCombined);
+          fallout.assign(man, event.getVar(), linexpr1, null);
           fallOutWrapper.set(fallout);
+          invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
+          logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
         }
       }
-      invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
-      logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
     }
   }
 
   /**
-   * TODO: This method needs testing
+   * TODO: change implementation to Lincons. test this method
    * Returns state of in after assignment
    *
    * @param outWrapper
@@ -503,8 +494,13 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
   public Lincons1 getConstraint(Value op1, Value op2, int binOp) {
     Linexpr1 linexpr1 = new Linexpr1(env);
-    setLinexprWithValue(op1, linexpr1, 1);
-    setLinexprWithValue(op2, linexpr1, -1);
+    if (op1 instanceof IntConstant && op2 instanceof IntConstant) {
+      linexpr1.setCst(new MpqScalar(((IntConstant) op1).value - ((IntConstant) op2).value));
+    } else {
+      setLinexprWithValue(op1, linexpr1, 1);
+      setLinexprWithValue(op2, linexpr1, -1);
+    }
+    logger.debug("Linexpr " + linexpr1);
     return new Lincons1(binOp, linexpr1);
   }
 

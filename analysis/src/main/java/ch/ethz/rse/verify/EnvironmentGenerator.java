@@ -1,28 +1,18 @@
 package ch.ethz.rse.verify;
 
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
 import com.google.common.collect.Iterables;
 
-import apron.Environment;
-import ch.ethz.rse.pointer.EventInitializer;
-import ch.ethz.rse.pointer.PointsToInitializer;
-import ch.ethz.rse.utils.Constants;
-import soot.IntegerType;
-import soot.Local;
-import soot.PointsToAnalysis;
-import soot.SootHelper;
-import soot.SootMethod;
-import soot.Value;
-import soot.jimple.ParameterRef;
-import soot.jimple.internal.JimpleLocal;
-import soot.util.Chain;
-
 import org.slf4j.Logger; //NEW
 import org.slf4j.LoggerFactory; //NEW
+
+import apron.Environment;
+import ch.ethz.rse.pointer.PointsToInitializer;
+import soot.Local;
+import soot.SootHelper;
+import soot.SootMethod;
 
 /**
  * Generates an environment which holds all variable names needed for the
