@@ -18,7 +18,7 @@ public class EnvironmentGeneratorTest {
 
   @Test
   public void testIntVariables() {
-    String packageName = "ch.ethz.rse.integration.tests.Int_Variables_Test_Safe";
+    String packageName = "ch.ethz.rse.integration.tests.Int_Variables_Test";
     VerificationTestCase t = new VerificationTestCase(packageName, VerificationProperty.START_END_ORDER, true);
     SootClass sc = SootHelper.loadClassAndAnalyze(t.getTestClass());
     // generate environment
@@ -28,6 +28,6 @@ public class EnvironmentGeneratorTest {
 
     // check that pointer indeed points to an abstract object
     int intDim = env.getDimension().intDim;
-    Assertions.assertEquals(2, intDim);
+    Assertions.assertEquals(3, intDim);
   }
 }
