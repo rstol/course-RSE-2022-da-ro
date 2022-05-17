@@ -25,6 +25,7 @@ import apron.Texpr1CstNode;
 import apron.Texpr1Intern;
 import apron.Texpr1Node;
 import apron.Texpr1VarNode;
+import apron.Var;
 import ch.ethz.rse.VerificationProperty;
 import ch.ethz.rse.pointer.EventInitializer;
 import ch.ethz.rse.pointer.PointsToInitializer;
@@ -360,29 +361,37 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     // only handle initializer of our Event class
     if (expr.getMethod().getDeclaringClass().getName().equals(Constants.EventClassName)) {
       logger.debug("Initializer: " + expr.getMethod() + " args: " + expr.getArg(0) + ", " + expr.getArg(1));
+      Value end = expr.getArg(1);
       Interval intervalStart = getInterval(expr.getArg(0), fallout);
-      Interval intervalEnd = getInterval(expr.getArg(1), fallout);
+      Interval intervalEnd = getInterval(end, fallout);
       logger.debug("Start interval: " + intervalStart);
       logger.debug("End interval: " + intervalEnd);
-      Interval eventIntervalCombined = new Interval(intervalStart.inf, intervalEnd.sup);
+      Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEnd);
       logger.debug("Event interval combined: " + eventIntervalCombined);
       for (EventInitializer event : events) {
-        event.addInvoke(jInvStmt);
         if (!alreadyInit.contains(event)) {
           alreadyInit.add(event);
-          Linexpr1 linexpr1 = new Linexpr1(env,
-              new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(0)) }, eventIntervalCombined);
-          fallout.assign(man, event.getVar(), linexpr1, null);
-          fallOutWrapper.set(fallout);
-          invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
-          logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
         }
+        // Linexpr1 linexpr1 = new Linexpr1(env,
+        // new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(0)) },
+        // eventIntervalCombined);
+        // fallout.assign(man, event.getVar(), linexpr1, null);
+        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
+            new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(-1)) },
+            eventIntervalCombined));
+        fallout.forget(man, event.getVar(), false);
+        fallout.meet(man, lincons1);
+
+        fallOutWrapper.set(fallout);
+        invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
+        event.addInvoke(jInvStmt);
+        logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
       }
     }
   }
 
   /**
-   * TODO: change implementation to Lincons. test this method
+   * TODO: Maybe change implementation to Lincons. test this method
    * Returns state of in after assignment
    *
    * @param outWrapper
@@ -391,33 +400,54 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
    * @throws ApronException
    */
   private void handleDef(NumericalStateWrapper outWrapper, Value left, Value right) throws ApronException {
-    Abstract1 inState = outWrapper.get();
+    Abstract1 outState = outWrapper.get();
     if (left instanceof JimpleLocal) {
       String leftLocal = ((JimpleLocal) left).getName();
+      Linexpr1 linexpr1 = new Linexpr1(env);
+      StringVar leftVar = new StringVar(left.toString());
+
       Texpr1Node rightExpr = null;
       Texpr1Intern expr = null;
       if (right instanceof IntConstant) {
-        rightExpr = new Texpr1CstNode(new MpqScalar(((IntConstant) right).value));
-        expr = new Texpr1Intern(env, rightExpr);
-        // maybe better to use .set than assign
-        inState.assign(man, leftLocal, expr, null);
+        // rightExpr = new Texpr1CstNode(new MpqScalar(((IntConstant) right).value));
+        // expr = new Texpr1Intern(env, rightExpr);
+        // // maybe better to use .set than assign
+        // outState.assign(man, leftLocal, expr, null);
+
+        linexpr1.setCoeff(left.toString(), new MpqScalar(1));
+        linexpr1.setCst(new MpqScalar(-((IntConstant) right).value));
+        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, linexpr1);
+        outState.forget(man, left.toString(), false);
+        outState.meet(man, lincons1);
+        logger.info("Out state after meet: " + outState.toString());
       } else if (right instanceof JimpleLocal) {
-        JimpleLocal rightLocal = (JimpleLocal) right;
-        if (SootHelper.isIntValue(rightLocal)) {
-          rightExpr = new Texpr1VarNode(rightLocal.getName());
-          expr = new Texpr1Intern(env, rightExpr);
-          inState.assign(man, leftLocal, expr, null);
-        }
+        // JimpleLocal rightLocal = (JimpleLocal) right;
+        // rightExpr = new Texpr1VarNode(rightLocal.getName());
+        // expr = new Texpr1Intern(env, rightExpr);
+        // outState.assign(man, leftLocal, expr, null);
+
+        String rightVar = ((JimpleLocal) right).getName();
+        Interval rightInterval = outState.getBound(man, rightVar);
+        Abstract1 rightAbstract = new Abstract1(man, env, new Var[] { leftVar }, new Interval[] { rightInterval });
+        logger.info("Out state before meet: " + outState.toString());
+        outState.forget(man, leftVar, false);
+        outState.meet(man, rightAbstract);
+        logger.info("Out state after meet: " + outState.toString());
       } else if (right instanceof BinopExpr) {
-        // TODO: use Linterm in this implementation
+        // TODO: Maybe use Linterms in this implementation
         if (right instanceof JMulExpr) {
-          handleBinExpr(inState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
+          outState = handleBinExpr(outState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
         } else if (right instanceof JSubExpr) {
-          handleBinExpr(inState, (JSubExpr) right, Texpr1BinNode.OP_SUB, leftLocal);
+          outState = handleBinExpr(outState, (JSubExpr) right, Texpr1BinNode.OP_SUB, leftLocal);
         } else if (right instanceof JAddExpr) {
-          handleBinExpr(inState, (JSubExpr) right, Texpr1BinNode.OP_ADD, leftLocal);
+          outState = handleBinExpr(outState, (JAddExpr) right, Texpr1BinNode.OP_ADD, leftLocal);
         }
+      } else {
+        Interval interval = new Interval();
+        interval.setTop();
+        outState = new Abstract1(man, env, new String[] { ((Local) left).getName() }, new Interval[] { interval });
       }
+      outWrapper.set(outState);
     }
   }
 
@@ -500,7 +530,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       setLinexprWithValue(op1, linexpr1, 1);
       setLinexprWithValue(op2, linexpr1, -1);
     }
-    logger.debug("Linexpr " + linexpr1);
     return new Lincons1(binOp, linexpr1);
   }
 
@@ -539,12 +568,12 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   }
 
   // TODO: Remove this method
-  private void handleBinExpr(Abstract1 inState, AbstractBinopExpr right, int op, String var) {
+  private Abstract1 handleBinExpr(Abstract1 inState, AbstractBinopExpr right, int op, String var) {
     Value op1 = right.getOp1();
     Value op2 = right.getOp2();
     Texpr1Node leftExpr = makeExprFromValue(op1);
     Texpr1Node rightExpr = makeExprFromValue(op2);
-    Texpr1BinNode bin = new Texpr1BinNode(Texpr1BinNode.OP_MUL, leftExpr, rightExpr);
+    Texpr1BinNode bin = new Texpr1BinNode(op, leftExpr, rightExpr);
     Texpr1Intern expr = new Texpr1Intern(env, bin);
     try {
       inState.assign(man, var, expr, null);
@@ -552,5 +581,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
+    return inState;
   }
 }

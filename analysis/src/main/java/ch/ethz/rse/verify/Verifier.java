@@ -84,11 +84,12 @@ public class Verifier extends AVerifier {
 
       for (EventInitializer event : events) {
         int start = event.start;
+        logger.debug("Checking event " + event);
         for (JInvokeStmt invokeStmt : event.getInvokes()) {
           InvokeExpr expr = invokeStmt.getInvokeExpr();
           // only analyze constructor invokes
           if (expr instanceof SpecialInvokeExpr) {
-            logger.debug("Checking event " + event.toString() + " with invoke statement " + invokeStmt);
+            logger.debug("Checking invoke statement " + invokeStmt);
             Value end = expr.getArg(1);
             if (end instanceof Local) {
               Abstract1 fallout = invokeToAbstract.get(invokeStmt);
@@ -97,14 +98,9 @@ public class Verifier extends AVerifier {
               Lincons1 lincons1 = new Lincons1(Lincons1.SUP, linexpr1);
               logger.debug("Constraint: " + lincons1);
               try {
+                logger.debug("fallout before meet: " + fallout);
                 fallout.meet(man, lincons1);
-                for (Abstract1 f : invokeToAbstract.values()) {
-                  logger.debug("Fallout is " + f);
-                }
-                for (Abstract1 f : invokeToAbstract.values()) {
-                  logger.debug("Fallout is " + f);
-                }
-                logger.debug("fallout: " + fallout);
+                logger.debug("fallout after meet: " + fallout);
                 if (!fallout.isBottom(man))
                   // start - end > 0 => property might not be satisfied
                   startEndOrder = false;
