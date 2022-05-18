@@ -60,6 +60,8 @@ public class EnvironmentGenerator {
       if (SootHelper.isIntValue(l)) {
         ints.add(l.getName());
       } else {
+        // Add non-int variables to the environment as well to track the intervals of
+        // Event class variables
         ints.add(l.getName());
         // logger.debug("Local is not int and has type: " + l.getType());
       }

@@ -9,8 +9,8 @@ import ch.ethz.rse.Event;
 
 public class Basic_Test_Unsafe {
 
-	public void m2(int i, int j) {
-		Event e = new Event(2, 0);
-		e.switchLights(1);
-	}
+  public void m2(int i, int j) {
+    Event e = new Event(2, 0);
+    e.switchLights(1);
+  }
 }
