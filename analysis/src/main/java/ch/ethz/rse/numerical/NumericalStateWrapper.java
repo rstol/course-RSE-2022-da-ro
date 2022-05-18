@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import apron.Abstract1;
 import apron.ApronException;
 import apron.Environment;
-import apron.Lincons1;
 import apron.Manager;
 import apron.NotImplementedException;
 
@@ -92,7 +91,6 @@ public class NumericalStateWrapper {
     other.elem = copy.elem;
   }
 
-  // TODO: MAYBE FILL THIS OUT: add convenience methods
   public NumericalStateWrapper join(NumericalStateWrapper other) {
     try {
       Abstract1 joined = this.elem.joinCopy(man, other.elem);
@@ -105,7 +103,6 @@ public class NumericalStateWrapper {
 
   public NumericalStateWrapper widen(NumericalStateWrapper other) {
     try {
-      // Lincons1[] lincons1s = new Lincons1[] {lincons1};
       // apron requires explicit joining before widening
       Abstract1 joined = this.elem.joinCopy(man, other.elem);
       Abstract1 widened = this.elem.widening(man, joined);
