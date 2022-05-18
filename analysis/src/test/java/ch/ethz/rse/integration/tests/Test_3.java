@@ -9,10 +9,9 @@ import ch.ethz.rse.Event;
 
 public class Test_3 {
   public void m1() {
-    int start = 5;
     int i = 10;
     while (i > 3) {
-      Event e = new Event(start, i);
+      Event e = new Event(5, i);
       i--;
     }
   }
