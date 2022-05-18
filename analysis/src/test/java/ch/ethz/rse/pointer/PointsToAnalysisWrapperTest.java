@@ -20,19 +20,19 @@ import soot.jimple.spark.pag.Node;
  */
 public class PointsToAnalysisWrapperTest {
 
-	@Test
-	public void testPointer() {
-		String packageName = "ch.ethz.rse.integration.tests.Basic_Test_Safe";
-		VerificationTestCase t = new VerificationTestCase(packageName, VerificationProperty.START_END_ORDER, true);
-		SootClass sc = SootHelper.loadClassAndAnalyze(t.getTestClass());
-		// run points-to analysis
-		PointsToAnalysisWrapper w = new PointsToAnalysisWrapper(sc);
+  @Test
+  public void testPointer() {
+    String packageName = "ch.ethz.rse.integration.tests.Basic_Test_Safe";
+    VerificationTestCase t = new VerificationTestCase(packageName, VerificationProperty.START_END_ORDER, true);
+    SootClass sc = SootHelper.loadClassAndAnalyze(t.getTestClass());
+    // run points-to analysis
+    PointsToAnalysisWrapper w = new PointsToAnalysisWrapper(sc);
 
-		// check that pointer indeed points to an abstract object
-		Body b = sc.getMethodByName("m1").retrieveActiveBody();
-		Local s = Iterators.get(b.getLocals().iterator(), 0);
-		Collection<Node> pointsTo = w.getNodes(s);
-		Assertions.assertEquals(1, pointsTo.size());
-	}
+    // check that pointer indeed points to an abstract object
+    Body b = sc.getMethodByName("m1").retrieveActiveBody();
+    Local s = Iterators.get(b.getLocals().iterator(), 0);
+    Collection<Node> pointsTo = w.getNodes(s);
+    Assertions.assertEquals(1, pointsTo.size());
+  }
 
 }

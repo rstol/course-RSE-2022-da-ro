@@ -8,3 +8,6 @@
 # temporary files
 /**/*odp#
 
+.run-docker.sh.swp
+
+.DS_Store
