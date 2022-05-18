@@ -9,9 +9,8 @@ import ch.ethz.rse.Event;
 
 public class Test_1 {
   public void m1(int i) {
-    int start = 0;
     if (0 <= i && i <= 8) {
-      Event e = new Event(start, i);
+      Event e = new Event(0, i);
       if (i < 4) {
         e.switchLights(i);
       } else {
