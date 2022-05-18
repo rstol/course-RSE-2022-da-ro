@@ -21,8 +21,8 @@ public class SpecificExampleIT {
    */
   @Test
   void specificTest() {
-    String packageName = "ch.ethz.rse.integration.tests.Test_2";
-    VerificationProperty verificationTask = VerificationProperty.AFTER_START;
+    String packageName = "ch.ethz.rse.integration.tests.BinOp_Test_Safe";
+    VerificationProperty verificationTask = VerificationProperty.BEFORE_END;
     boolean expectedIsSafe = true;
     VerificationTestCase t = new VerificationTestCase(packageName, verificationTask, expectedIsSafe);
     SpecificExampleIT.testOnExample(t);
