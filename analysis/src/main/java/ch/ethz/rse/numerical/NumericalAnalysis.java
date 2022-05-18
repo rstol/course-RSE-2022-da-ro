@@ -201,7 +201,11 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     // merge the two states from w1 and w2 and store the result into w3
     logger.debug("in merge: " + succNode);
     IntegerWrapper headCount = loopHeads.get(succNode);
-
+    // Abstract1 previousLoopHeadState = null;
+    // if (loopHeadState.containsKey(succNode)) {
+    // previousLoopHeadState = loopHeadState.get(succNode).get();
+    // }
+    // logger.debug("Previous loop head state is: " + previousLoopHeadState);
     if (headCount != null) {
       // perform widening or join
       if (headCount.value < WIDENING_THRESHOLD) {
@@ -213,6 +217,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     } else {
       w3.set(w1.join(w2).get());
     }
+    // loopHeadState.put(succNode, w3);
   }
 
   @Override
