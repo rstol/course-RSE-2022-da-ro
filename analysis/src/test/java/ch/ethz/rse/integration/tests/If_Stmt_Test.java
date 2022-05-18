@@ -9,8 +9,6 @@ import ch.ethz.rse.Event;
 
 public class If_Stmt_Test {
   public void m2(int i, int j) {
-    // TODO: needs work
-    // i = 3;
     if (i > 2) {
       Event e1 = new Event(2, i);
       Event e2 = new Event(5, i);

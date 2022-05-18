@@ -4,7 +4,7 @@ import ch.ethz.rse.Event;
 
 // expected results:
 // START_END_ORDER SAFE
-// AFTER_START UNSAFE
+// AFTER_START SAFE
 // BEFORE_END UNSAFE
 
 public class Test_2 {
