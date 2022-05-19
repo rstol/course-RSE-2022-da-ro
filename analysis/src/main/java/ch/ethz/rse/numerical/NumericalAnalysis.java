@@ -284,7 +284,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
         // handle if
         JIfStmt ifStmt = (JIfStmt) s;
         Value cond = ifStmt.getCondition();
-        logger.debug("Condition type of if statement is: " + cond.getType());
         AbstractBinopExpr condExpr = (AbstractBinopExpr) cond;
         handleIf(condExpr, inWrapper, fallOutWrapper, branchOutWrapper);
 
@@ -332,21 +331,21 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       Interval intervalArg = getInterval(arg0, fallout);
 
       for (EventInitializer event : events) {
-        event.addInvoke(jInvStmt);
-
         Interval intervalEvent = getInterval(event.getVar(), fallout);
         Interval newIntervalCombined = combineIntervals(intervalArg, intervalEvent);
         logger.debug("Event interval: " + intervalEvent);
         logger.debug("Arg interval : " + intervalArg);
         logger.debug("Combined interval: " + newIntervalCombined);
-        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
-            new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(-1)) },
-            newIntervalCombined));
+        Linterm1 linterm1 = new Linterm1(event.getVar(), new MpqScalar(-1));
+        Linexpr1 linexpr1 = new Linexpr1(env, new Linterm1[] { linterm1 }, newIntervalCombined);
+        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, linexpr1);
         fallout.forget(man, event.getVar(), false);
         fallout.meet(man, lincons1);
         fallOutWrapper.set(fallout);
+        // track abstract state for each statement for each event initializer
+        event.addInvoke(jInvStmt);
+        invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
       }
-      invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
     }
   }
 
@@ -371,23 +370,26 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
         if (!alreadyInit.contains(event)) {
           alreadyInit.add(event);
         }
-        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, new Linexpr1(env,
-            new Linterm1[] { new Linterm1(event.getVar(), new MpqScalar(-1)) },
-            eventIntervalCombined));
+        Linterm1 linterm1 = new Linterm1(event.getVar(), new MpqScalar(-1));
+        Linexpr1 linexpr1 = new Linexpr1(env,
+            new Linterm1[] { linterm1 },
+            eventIntervalCombined);
+        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, linexpr1);
         fallout.forget(man, event.getVar(), false);
         fallout.meet(man, lincons1);
-
         fallOutWrapper.set(fallout);
+        // track abstract state for each statement for each event initializer
         invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
         event.addInvoke(jInvStmt);
-        logger.debug("adding to invoke abstract map " + jInvStmt + " and " + fallOutWrapper.get());
+        // logger.debug("adding to invoke abstract map " + jInvStmt + " and " +
+        // fallOutWrapper.get());
       }
     }
   }
 
   /**
-   * TODO: Test the binOps computation in this method
-   * Returns state of in after assignment
+   *
+   * Sets state of outWrapper after assignment
    *
    * @param outWrapper
    * @param left
@@ -428,7 +430,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   }
 
   /**
-   * TODO: this method needs testing
    *
    * @param condExpr
    * @param inWrapper
@@ -498,7 +499,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     if (obj instanceof Local) {
       return elem.getBound(man, ((Local) obj).getName());
     } else if (obj instanceof ParameterRef) {
-      // Parameters are unknown and can set interval to TOP
+      // Parameters are unknown => set interval to TOP
       Interval interval = new Interval();
       interval.setTop();
       return interval;
@@ -541,18 +542,13 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     return e;
   }
 
-  private void handleBinExpr(Abstract1 outState, AbstractBinopExpr right, int op, String var) {
+  private void handleBinExpr(Abstract1 outState, AbstractBinopExpr right, int op, String var) throws ApronException {
     Value op1 = right.getOp1();
     Value op2 = right.getOp2();
     Texpr1Node leftExpr = makeExprFromValue(op1);
     Texpr1Node rightExpr = makeExprFromValue(op2);
     Texpr1BinNode bin = new Texpr1BinNode(op, leftExpr, rightExpr);
     Texpr1Intern expr = new Texpr1Intern(env, bin);
-    try {
-      outState.assign(man, var, expr, null);
-    } catch (ApronException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+    outState.assign(man, var, expr, null);
   }
 }

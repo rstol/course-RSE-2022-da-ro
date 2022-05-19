@@ -30,7 +30,7 @@ public class EventInitializer {
   /**
    * the variable associated to this initializer
    */
-  private final String var;
+  private final String localVar;
 
   /**
    * The invoke statements associated to this initializer
@@ -42,12 +42,13 @@ public class EventInitializer {
    * @param statement    piece of code running the initializer
    * @param uniqueNumber unique identifier of the initializer
    * @param argment      argument in the constructor
+   * @param localVar     local variable associated to the initializer
    */
-  public EventInitializer(JInvokeStmt statement, int uniqueNumber, int start, String var) {
+  public EventInitializer(JInvokeStmt statement, int uniqueNumber, int start, String localVar) {
     this.statement = statement;
     this.uniqueNumber = uniqueNumber;
     this.start = start;
-    this.var = var;
+    this.localVar = localVar;
   }
 
   /**
@@ -55,7 +56,7 @@ public class EventInitializer {
    * @return piece of code running the initializer
    */
   public JInvokeStmt getStatement() {
-    return statement;
+    return this.statement;
   }
 
   /**
@@ -68,10 +69,10 @@ public class EventInitializer {
 
   /**
    *
-   * @return variable associated to this initializer
+   * @return local variable associated to this initializer
    */
   public String getVar() {
-    return var;
+    return this.localVar;
   }
 
   /**
@@ -87,7 +88,7 @@ public class EventInitializer {
    * @return invoke statements associated to this initializer
    */
   public List<JInvokeStmt> getInvokes() {
-    return invokes;
+    return this.invokes;
   }
 
   /**

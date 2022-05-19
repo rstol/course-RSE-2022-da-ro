@@ -90,13 +90,14 @@ public class PointsToInitializer {
           Collection<Node> nodes = this.getAllocationNodes(specialInvExpr);
           for (Node node : nodes) {
             Value base = specialInvExpr.getBase();
-            logger.debug("The base variable for the event initializer  " + specialInvExpr + " is " + base);
+            // logger.debug("The base variable for the event initializer " + specialInvExpr
+            // + " is " + base);
             int uniqueNumber = node.hashCode();
             // Assume: constructor Event takes as first argument (start) only integer
             // constants.
             Value arg0 = specialInvExpr.getArg(0);
             IntConstant start = (IntConstant) arg0;
-            // logger.debug("The invoke expression has as first argument: " +
+            // logger.debug("The invoke expression's first argument is: " +
             // invokeExpr.getArg(0));
             EventInitializer event = new EventInitializer(jInvStmt, uniqueNumber, start.value, base.toString());
             this.initializers.put(node, event);

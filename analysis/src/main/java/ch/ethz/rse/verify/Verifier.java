@@ -68,7 +68,6 @@ public class Verifier extends AVerifier {
 
   @Override
   public boolean checkStartEndOrder() {
-    // return true if no methods in test
     if (numericalAnalysis.isEmpty()) {
       return true;
     }
@@ -121,7 +120,6 @@ public class Verifier extends AVerifier {
 
   @Override
   public boolean checkAfterStart() {
-    // return true if no methods in test
     if (numericalAnalysis.isEmpty()) {
       return true;
     }
@@ -175,7 +173,6 @@ public class Verifier extends AVerifier {
 
   @Override
   public boolean checkBeforeEnd() {
-    // return true if no methods in test
     if (numericalAnalysis.isEmpty()) {
       return true;
     }
@@ -191,7 +188,7 @@ public class Verifier extends AVerifier {
 
       for (EventInitializer event : events) {
         Value end = event.getStatement().getInvokeExpr().getArg(1);
-        logger.debug("End is " + end.toString());
+        // logger.debug("End is " + end.toString());
         for (JInvokeStmt invokeStmt : event.getInvokes()) {
           InvokeExpr expr = invokeStmt.getInvokeExpr();
           // only analyze switchlights invokes

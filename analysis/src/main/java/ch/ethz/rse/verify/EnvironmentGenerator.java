@@ -42,7 +42,7 @@ public class EnvironmentGenerator {
     this.method = method;
     this.pointsTo = pointsTo;
 
-    this.populateInts();
+    this.populateIntsWithLocals();
 
     String ints_arr[] = Iterables.toArray(this.ints, String.class);
 
@@ -55,16 +55,11 @@ public class EnvironmentGenerator {
   }
 
   // convenience method
-  private void populateInts() {
+  private void populateIntsWithLocals() {
     for (Local l : method.retrieveActiveBody().getLocals()) {
-      if (SootHelper.isIntValue(l)) {
-        ints.add(l.getName());
-      } else {
-        // Add non-int variables to the environment as well to track the intervals of
-        // Event class variables
-        ints.add(l.getName());
-        // logger.debug("Local is not int and has type: " + l.getType());
-      }
+      // Add non-int variables to the environment as well to track the intervals of
+      // Event class variables
+      ints.add(l.getName());
     }
   }
 }
