@@ -10,9 +10,9 @@ import ch.ethz.rse.Event;
 public class Unreachable_Test {
     public static void m2(int i) {
         Event e = new Event(42, 128);
-        if (i >= 10) {
-            if (i < 10) {
-                //unreachable, would violate AFTER_START if not
+        if (i >= 42) {
+            if (i < 16) {
+                //unreachable, would violate AFTER_START and START_END_ORDER if not
                 Event u = new Event(128, 42);
                 e.switchLights(2);
             }
