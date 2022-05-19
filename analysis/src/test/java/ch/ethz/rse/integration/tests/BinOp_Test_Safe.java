@@ -3,9 +3,9 @@ package ch.ethz.rse.integration.tests;
 import ch.ethz.rse.Event;
 
 // expected results:
-// START_END_ORDER: SAFE
-// AFTER_START: SAFE
-// BEFORE_END: SAFE
+// START_END_ORDER SAFE
+// AFTER_START SAFE
+// BEFORE_END SAFE
 
 public class BinOp_Test_Safe {
   public void m1() {
