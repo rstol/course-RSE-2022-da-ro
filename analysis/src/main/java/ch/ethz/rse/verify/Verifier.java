@@ -8,21 +8,15 @@ import org.slf4j.LoggerFactory;
 
 import apron.Abstract1;
 import apron.ApronException;
-import apron.Environment;
 import apron.Lincons1;
-import apron.Linexpr1;
-import apron.Linterm1;
 import apron.Manager;
-import apron.MpqScalar;
 import ch.ethz.rse.VerificationProperty;
 import ch.ethz.rse.numerical.NumericalAnalysis;
 import ch.ethz.rse.pointer.EventInitializer;
 import ch.ethz.rse.pointer.PointsToInitializer;
-import soot.Local;
 import soot.SootClass;
 import soot.SootMethod;
 import soot.Value;
-import soot.jimple.IntConstant;
 import soot.jimple.InvokeExpr;
 import soot.jimple.SpecialInvokeExpr;
 import soot.jimple.VirtualInvokeExpr;
@@ -77,12 +71,11 @@ public class Verifier extends AVerifier {
     for (SootMethod method : this.numericalAnalysis.keySet()) {
       NumericalAnalysis analysis = this.numericalAnalysis.get(method);
       Manager man = analysis.man;
-      Environment env = analysis.env;
       Collection<EventInitializer> events = this.pointsTo.getInitializers(method);
       Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
 
       for (EventInitializer event : events) {
-        int start = event.start;
+        Value start = event.getStatement().getInvokeExpr().getArg(0);
         logger.debug("Checking event " + event);
         for (JInvokeStmt invokeStmt : event.getInvokes()) {
           InvokeExpr expr = invokeStmt.getInvokeExpr();
@@ -90,26 +83,18 @@ public class Verifier extends AVerifier {
           if (expr instanceof SpecialInvokeExpr) {
             logger.debug("Checking invoke statement " + invokeStmt);
             Value end = expr.getArg(1);
-            if (end instanceof Local) {
-              Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-              Linterm1 linterm1 = new Linterm1(((Local) end).getName(), new MpqScalar(-1));
-              Linexpr1 linexpr1 = new Linexpr1(env, new Linterm1[] { linterm1 }, new MpqScalar(start));
-              Lincons1 lincons1 = new Lincons1(Lincons1.SUP, linexpr1);
-              logger.debug("Constraint: " + lincons1);
-              try {
-                logger.debug("fallout before meet: " + fallout);
-                fallout.meet(man, lincons1);
-                logger.debug("fallout after meet: " + fallout);
-                if (!fallout.isBottom(man))
-                  // start - end > 0 => property might not be satisfied
-                  startEndOrder = false;
-              } catch (ApronException e1) {
-                e1.printStackTrace();
-              }
-            } else if (end instanceof IntConstant) {
-              if (start > ((IntConstant) end).value) {
+            Abstract1 fallout = invokeToAbstract.get(invokeStmt);
+            Lincons1 lincons1 = analysis.getLinConstraint(start, end, Lincons1.SUP);
+            logger.debug("Constraint: " + lincons1);
+            try {
+              logger.debug("fallout before meet: " + fallout);
+              fallout.meet(man, lincons1);
+              logger.debug("fallout after meet: " + fallout);
+              if (!fallout.isBottom(man))
+                // start - end > 0 => property might not hold
                 startEndOrder = false;
-              }
+            } catch (ApronException e1) {
+              e1.printStackTrace();
             }
           }
         }
@@ -129,40 +114,31 @@ public class Verifier extends AVerifier {
     for (SootMethod method : this.numericalAnalysis.keySet()) {
       NumericalAnalysis analysis = this.numericalAnalysis.get(method);
       Manager man = analysis.man;
-      Environment env = analysis.env;
       Collection<EventInitializer> events = this.pointsTo.getInitializers(method);
       Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
 
       for (EventInitializer event : events) {
-        int start = event.start;
+        Value start = event.getStatement().getInvokeExpr().getArg(0);
+
         for (JInvokeStmt invokeStmt : event.getInvokes()) {
           InvokeExpr expr = invokeStmt.getInvokeExpr();
           // only analyze switchlights invokes
           if (expr instanceof VirtualInvokeExpr) {
             logger.debug("Checking event " + event.toString() + " with invoke statement " + invokeStmt);
             Value time = expr.getArg(0);
-            if (time instanceof Local) {
-              Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-              Linterm1 linterm1 = new Linterm1(((Local) time).getName(), new MpqScalar(-1));
-              Linexpr1 linexpr1 = new Linexpr1(env, new Linterm1[] { linterm1 }, new MpqScalar(start));
-              Lincons1 lincons1 = new Lincons1(Lincons1.SUP, linexpr1);
-              logger.debug("Constraint: " + lincons1);
-              try {
-                fallout.meet(man, lincons1);
-                // for (Abstract1 f : invokeToAbstract.values()) {
-                // logger.debug("Fallout is " + f);
-                // }
-                logger.debug("fallout: " + fallout);
-                if (!fallout.isBottom(man))
-                  // time - start > 0 => property might not be satisfied
-                  afterStart = false;
-              } catch (ApronException e1) {
-                e1.printStackTrace();
-              }
-            } else if (time instanceof IntConstant) {
-              if (((IntConstant) time).value < start) {
+            Abstract1 fallout = invokeToAbstract.get(invokeStmt);
+            Lincons1 lincons1 = analysis.getLinConstraint(start, time, Lincons1.SUP);
+            try {
+              fallout.meet(man, lincons1);
+              // for (Abstract1 f : invokeToAbstract.values()) {
+              // logger.debug("Fallout is " + f);
+              // }
+              logger.debug("fallout: " + fallout);
+              if (!fallout.isBottom(man))
+                // time - start > 0 => property might not hold
                 afterStart = false;
-              }
+            } catch (ApronException e1) {
+              e1.printStackTrace();
             }
           }
         }
@@ -182,7 +158,6 @@ public class Verifier extends AVerifier {
     for (SootMethod method : this.numericalAnalysis.keySet()) {
       NumericalAnalysis analysis = this.numericalAnalysis.get(method);
       Manager man = analysis.man;
-      Environment env = analysis.env;
       Collection<EventInitializer> events = this.pointsTo.getInitializers(method);
       Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
 
@@ -195,49 +170,16 @@ public class Verifier extends AVerifier {
           if (expr instanceof VirtualInvokeExpr) {
             logger.debug("Checking event " + event.toString() + " with invoke statement " + invokeStmt);
             Value time = expr.getArg(0);
-            if (time instanceof Local) {
-              Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-              Linterm1 ltTime = new Linterm1(((Local) time).getName(), new MpqScalar(1));
-              Linexpr1 linexpr1 = null;
-              if (end instanceof Local) {
-                Linterm1 ltEnd = new Linterm1(((Local) end).getName(), new MpqScalar(-1));
-                linexpr1 = new Linexpr1(env, new Linterm1[] { ltTime, ltEnd }, new MpqScalar(0));
-              } else if (end instanceof IntConstant) {
-                linexpr1 = new Linexpr1(env, new Linterm1[] { ltTime }, new MpqScalar(-((IntConstant) end).value));
-              }
-              Lincons1 lincons1 = new Lincons1(Lincons1.SUP, linexpr1);
-              logger.debug("Constraint: " + lincons1);
-              try {
-                fallout.meet(man, lincons1);
-                logger.debug("fallout: " + fallout);
-                if (!fallout.isBottom(man))
-                  // time - end > 0 => property might not be satisfied
-                  beforeEnd = false;
-              } catch (ApronException e1) {
-                e1.printStackTrace();
-              }
-            } else if (time instanceof IntConstant) {
-              int t = ((IntConstant) time).value;
-              if (end instanceof Local) {
-                Linterm1 ltEnd = new Linterm1(((Local) end).getName(), new MpqScalar(-1));
-                Linexpr1 linexpr1 = new Linexpr1(env, new Linterm1[] { ltEnd }, new MpqScalar(t));
-                Lincons1 lincons1 = new Lincons1(Lincons1.SUP, linexpr1);
-                logger.debug("Constraint: " + lincons1);
-                Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-                try {
-                  fallout.meet(man, lincons1);
-                  logger.debug("fallout: " + fallout);
-                  if (!fallout.isBottom(man))
-                    // time - end > 0 => property might not be satisfied
-                    beforeEnd = false;
-                } catch (ApronException e1) {
-                  e1.printStackTrace();
-                }
-              } else if (end instanceof IntConstant) {
-                if (t > ((IntConstant) end).value) {
-                  beforeEnd = false;
-                }
-              }
+            Lincons1 lincons1 = analysis.getLinConstraint(time, end, Lincons1.SUP);
+            Abstract1 fallout = invokeToAbstract.get(invokeStmt);
+            try {
+              fallout.meet(man, lincons1);
+              logger.debug("fallout: " + fallout);
+              if (!fallout.isBottom(man))
+                // time - end > 0 => property might not hold
+                beforeEnd = false;
+            } catch (ApronException e1) {
+              e1.printStackTrace();
             }
           }
         }

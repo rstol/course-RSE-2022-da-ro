@@ -353,9 +353,9 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
       Local base = (Local) ((SpecialInvokeExpr) expr).getBase();
       for (EventInitializer event : pointsTo.pointsTo(base)) {
-        if (!alreadyInit.contains(event)) {
-          alreadyInit.add(event);
-        }
+        // if (!alreadyInit.contains(event)) {
+        // alreadyInit.add(event);
+        // }
         updateEventWithInterval(jInvStmt, event, fallOutWrapper, eventIntervalCombined);
       }
     }
@@ -438,23 +438,23 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     Lincons1 branchOutConstraint = null;
 
     if (condExpr instanceof JEqExpr) {
-      fallOutConstraint = getConstraint(left, right, Lincons1.DISEQ);
-      branchOutConstraint = getConstraint(left, right, Lincons1.EQ);
+      fallOutConstraint = getLinConstraint(left, right, Lincons1.DISEQ);
+      branchOutConstraint = getLinConstraint(left, right, Lincons1.EQ);
     } else if (condExpr instanceof JGeExpr) {
-      fallOutConstraint = getConstraint(right, left, Lincons1.SUP);
-      branchOutConstraint = getConstraint(left, right, Lincons1.SUPEQ);
+      fallOutConstraint = getLinConstraint(right, left, Lincons1.SUP);
+      branchOutConstraint = getLinConstraint(left, right, Lincons1.SUPEQ);
     } else if (condExpr instanceof JGtExpr) {
-      fallOutConstraint = getConstraint(right, left, Lincons1.SUPEQ);
-      branchOutConstraint = getConstraint(left, right, Lincons1.SUP);
+      fallOutConstraint = getLinConstraint(right, left, Lincons1.SUPEQ);
+      branchOutConstraint = getLinConstraint(left, right, Lincons1.SUP);
     } else if (condExpr instanceof JLeExpr) {
-      fallOutConstraint = getConstraint(left, right, Lincons1.SUP);
-      branchOutConstraint = getConstraint(right, left, Lincons1.SUPEQ);
+      fallOutConstraint = getLinConstraint(left, right, Lincons1.SUP);
+      branchOutConstraint = getLinConstraint(right, left, Lincons1.SUPEQ);
     } else if (condExpr instanceof JLtExpr) {
-      fallOutConstraint = getConstraint(left, right, Lincons1.SUPEQ);
-      branchOutConstraint = getConstraint(right, left, Lincons1.SUP);
+      fallOutConstraint = getLinConstraint(left, right, Lincons1.SUPEQ);
+      branchOutConstraint = getLinConstraint(right, left, Lincons1.SUP);
     } else if (condExpr instanceof JNeExpr) {
-      fallOutConstraint = getConstraint(left, right, Lincons1.EQ);
-      branchOutConstraint = getConstraint(left, right, Lincons1.DISEQ);
+      fallOutConstraint = getLinConstraint(left, right, Lincons1.EQ);
+      branchOutConstraint = getLinConstraint(left, right, Lincons1.DISEQ);
     } else {
       unhandled("Unhandled conditional statement", condExpr, true);
     }
@@ -475,7 +475,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     }
   }
 
-  public Lincons1 getConstraint(Value op1, Value op2, int binOp) {
+  public Lincons1 getLinConstraint(Value op1, Value op2, int binOp) {
     Linexpr1 linexpr1 = new Linexpr1(env);
     if (op1 instanceof IntConstant && op2 instanceof IntConstant) {
       // handle this case separately, otherwise the expression would be incorrect
