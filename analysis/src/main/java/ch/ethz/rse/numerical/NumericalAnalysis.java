@@ -43,6 +43,7 @@ import soot.jimple.DefinitionStmt;
 import soot.jimple.IntConstant;
 import soot.jimple.InvokeExpr;
 import soot.jimple.ParameterRef;
+import soot.jimple.SpecialInvokeExpr;
 import soot.jimple.Stmt;
 import soot.jimple.VirtualInvokeExpr;
 import soot.jimple.internal.AbstractBinopExpr;
@@ -294,8 +295,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
         if (invokeExpr instanceof JVirtualInvokeExpr) {
           handleInvoke(jInvStmt, fallOutWrapper);
         } else if (invokeExpr instanceof JSpecialInvokeExpr) {
-          // initializer for object
-          handleInitialize(jInvStmt, fallOutWrapper);
+          handleInvoke(jInvStmt, fallOutWrapper);
         } else {
           unhandled("Unhandled invoke statement", invokeExpr, true);
         }
@@ -323,41 +323,25 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   public void handleInvoke(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
     Abstract1 fallout = fallOutWrapper.get();
     JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
-    VirtualInvokeExpr expr = (VirtualInvokeExpr) jInvStmt.getInvokeExpr();
-    if (expr.getMethod().getName().equals(Constants.switchLightsFunctionName)) {
-      Local base = (Local) expr.getBase();
-      List<EventInitializer> events = pointsTo.pointsTo(base);
-      Value arg0 = expr.getArg(0); // switchLights only has one argument
+    InvokeExpr expr = jInvStmt.getInvokeExpr();
+    SootMethod method = expr.getMethod();
+
+    // case distiction between switchLights invoke and constructor invoke
+    if (method.getName().equals(Constants.switchLightsFunctionName)) {
+      Value arg0 = expr.getArg(0); // switchLights has one argument
       Interval intervalArg = getInterval(arg0, fallout);
 
-      for (EventInitializer event : events) {
+      Local base = (Local) ((VirtualInvokeExpr) expr).getBase();
+      for (EventInitializer event : pointsTo.pointsTo(base)) {
         Interval intervalEvent = getInterval(event.getVar(), fallout);
         Interval newIntervalCombined = combineIntervals(intervalArg, intervalEvent);
         logger.debug("Event interval: " + intervalEvent);
         logger.debug("Arg interval : " + intervalArg);
         logger.debug("Combined interval: " + newIntervalCombined);
-        Linterm1 linterm1 = new Linterm1(event.getVar(), new MpqScalar(-1));
-        Linexpr1 linexpr1 = new Linexpr1(env, new Linterm1[] { linterm1 }, newIntervalCombined);
-        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, linexpr1);
-        fallout.forget(man, event.getVar(), false);
-        fallout.meet(man, lincons1);
-        fallOutWrapper.set(fallout);
-        // track abstract state for each statement for each event initializer
-        event.addInvoke(jInvStmt);
-        invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
+        updateEventWithInterval(jInvStmt, event, fallOutWrapper, newIntervalCombined);
       }
-    }
-  }
-
-  public void handleInitialize(JInvokeStmt jInvStmtInit, NumericalStateWrapper fallOutWrapper) throws ApronException {
-    Abstract1 fallout = fallOutWrapper.get();
-    JInvokeStmt jInvStmt = (JInvokeStmt) jInvStmtInit.clone();
-    JSpecialInvokeExpr expr = (JSpecialInvokeExpr) jInvStmt.getInvokeExpr();
-    Local base = (Local) expr.getBase();
-    List<EventInitializer> events = this.pointsTo.pointsTo(base);
-
-    // only handle initializer of our Event class
-    if (expr.getMethod().getDeclaringClass().getName().equals(Constants.EventClassName)) {
+    } else if (method.getName().contains("<init>")
+        && method.getDeclaringClass().getName().equals(Constants.EventClassName)) {
       logger.debug("Initializer: " + expr.getMethod() + " args: " + expr.getArg(0) + ", " + expr.getArg(1));
       Value end = expr.getArg(1);
       Interval intervalStart = getInterval(expr.getArg(0), fallout);
@@ -366,25 +350,32 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       logger.debug("End interval: " + intervalEnd);
       Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEnd);
       logger.debug("Event interval combined: " + eventIntervalCombined);
-      for (EventInitializer event : events) {
+
+      Local base = (Local) ((SpecialInvokeExpr) expr).getBase();
+      for (EventInitializer event : pointsTo.pointsTo(base)) {
         if (!alreadyInit.contains(event)) {
           alreadyInit.add(event);
         }
-        Linterm1 linterm1 = new Linterm1(event.getVar(), new MpqScalar(-1));
-        Linexpr1 linexpr1 = new Linexpr1(env,
-            new Linterm1[] { linterm1 },
-            eventIntervalCombined);
-        Lincons1 lincons1 = new Lincons1(Lincons1.EQ, linexpr1);
-        fallout.forget(man, event.getVar(), false);
-        fallout.meet(man, lincons1);
-        fallOutWrapper.set(fallout);
-        // track abstract state for each statement for each event initializer
-        invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
-        event.addInvoke(jInvStmt);
-        // logger.debug("adding to invoke abstract map " + jInvStmt + " and " +
-        // fallOutWrapper.get());
+        updateEventWithInterval(jInvStmt, event, fallOutWrapper, eventIntervalCombined);
       }
     }
+  }
+
+  private void updateEventWithInterval(JInvokeStmt jInvStmt, EventInitializer event,
+      NumericalStateWrapper fallOutWrapper, Interval newInterval) throws ApronException {
+    String var = event.getVar();
+    Abstract1 fallout = fallOutWrapper.get();
+    Linterm1 linterm1 = new Linterm1(var, new MpqScalar(-1));
+    Linexpr1 linexpr1 = new Linexpr1(env, new Linterm1[] { linterm1 }, newInterval);
+    Lincons1 lincons1 = new Lincons1(Lincons1.EQ, linexpr1);
+    fallout.forget(man, var, false);
+    fallout.meet(man, lincons1);
+    fallOutWrapper.set(fallout);
+    // track abstract state for each statement for each event initializer
+    event.addInvoke(jInvStmt);
+    invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
+    // logger.debug("adding to invoke abstract map " + jInvStmt + " and " +
+    // fallOutWrapper.get());
   }
 
   /**
@@ -487,6 +478,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   public Lincons1 getConstraint(Value op1, Value op2, int binOp) {
     Linexpr1 linexpr1 = new Linexpr1(env);
     if (op1 instanceof IntConstant && op2 instanceof IntConstant) {
+      // handle this case separately, otherwise the expression would be incorrect
       linexpr1.setCst(new MpqScalar(((IntConstant) op1).value - ((IntConstant) op2).value));
     } else {
       setLinexprWithValue(op1, linexpr1, 1);
@@ -498,15 +490,16 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   public Interval getInterval(Object obj, Abstract1 elem) throws ApronException {
     if (obj instanceof Local) {
       return elem.getBound(man, ((Local) obj).getName());
+    } else if (obj instanceof IntConstant) {
+      MpqScalar value = new MpqScalar(((IntConstant) obj).value);
+      return new Interval(value, value);
     } else if (obj instanceof ParameterRef) {
       // Parameters are unknown => set interval to TOP
       Interval interval = new Interval();
       interval.setTop();
       return interval;
-    } else if (obj instanceof IntConstant) {
-      MpqScalar value = new MpqScalar(((IntConstant) obj).value);
-      return new Interval(value, value);
     } else if (obj instanceof String) {
+      // handle local event variable name as a String
       return elem.getBound(man, (String) obj);
     } else {
       return null;
