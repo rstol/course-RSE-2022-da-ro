@@ -21,9 +21,10 @@ public class SpecificExampleIT {
    */
   @Test
   void specificTest() {
-    String packageName = "ch.ethz.rse.integration.tests.BinOp_Test_Safe";
+    // TODO: write test that checks for the properties with unreachable invokations
+    String packageName = "ch.ethz.rse.integration.tests.Assign_Test";
     VerificationProperty verificationTask = VerificationProperty.BEFORE_END;
-    boolean expectedIsSafe = true;
+    boolean expectedIsSafe = false;
     VerificationTestCase t = new VerificationTestCase(packageName, verificationTask, expectedIsSafe);
     SpecificExampleIT.testOnExample(t);
   }
