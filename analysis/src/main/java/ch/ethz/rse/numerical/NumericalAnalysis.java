@@ -20,6 +20,7 @@ import apron.Manager;
 import apron.MpqScalar;
 import apron.Polka;
 import apron.StringVar;
+import apron.Tcons1;
 import apron.Texpr1BinNode;
 import apron.Texpr1CstNode;
 import apron.Texpr1Intern;
@@ -389,34 +390,38 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
    */
   private void handleDef(NumericalStateWrapper outWrapper, Value left, Value right) throws ApronException {
     Abstract1 outState = outWrapper.get();
+    Abstract1 newOutState = new Abstract1(man, env);
     if (left instanceof JimpleLocal) {
-      String leftLocal = ((JimpleLocal) left).getName();
+      Local leftLocal = ((JimpleLocal) left);
+      String leftLocalName = leftLocal.getName();
       Texpr1Node rightExpr = null;
       Texpr1Intern expr = null;
       if (right instanceof IntConstant) {
         rightExpr = new Texpr1CstNode(new MpqScalar(((IntConstant) right).value));
         expr = new Texpr1Intern(env, rightExpr);
-        outState.assign(man, leftLocal, expr, null);
+        newOutState = outState.forgetCopy(man, leftLocalName, false);
+        newOutState.assign(man, leftLocalName, expr, newOutState);
       } else if (right instanceof JimpleLocal) {
         JimpleLocal rightLocal = (JimpleLocal) right;
         rightExpr = new Texpr1VarNode(rightLocal.getName());
         expr = new Texpr1Intern(env, rightExpr);
-        outState.assign(man, leftLocal, expr, null);
+        newOutState = outState.forgetCopy(man, leftLocalName, false);
+        newOutState.assign(man, leftLocalName, expr, newOutState);
         // logger.info("Out state after meet: " + outState.toString());
       } else if (right instanceof BinopExpr) {
         if (right instanceof JMulExpr) {
-          handleBinExpr(outState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
+          newOutState = handleBinExpr(outState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
         } else if (right instanceof JSubExpr) {
-          handleBinExpr(outState, (JSubExpr) right, Texpr1BinNode.OP_SUB, leftLocal);
+          newOutState = handleBinExpr(outState, (JSubExpr) right, Texpr1BinNode.OP_SUB, leftLocal);
         } else if (right instanceof JAddExpr) {
-          handleBinExpr(outState, (JAddExpr) right, Texpr1BinNode.OP_ADD, leftLocal);
+          newOutState = handleBinExpr(outState, (JAddExpr) right, Texpr1BinNode.OP_ADD, leftLocal);
         }
       } else {
         Interval interval = new Interval();
         interval.setTop();
-        outState = new Abstract1(man, env, new String[] { ((Local) left).getName() }, new Interval[] { interval });
+        newOutState = new Abstract1(man, env, new String[] { ((Local) left).getName() }, new Interval[] { interval });
       }
-      outWrapper.set(outState);
+      outWrapper.set(newOutState);
     }
   }
 
@@ -436,7 +441,8 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
     Lincons1 fallOutConstraint = null;
     Lincons1 branchOutConstraint = null;
-
+    // logger.debug("Left side of condition is " + left + " right side is " +
+    // right);
     if (condExpr instanceof JEqExpr) {
       fallOutConstraint = getLinConstraint(left, right, Lincons1.DISEQ);
       branchOutConstraint = getLinConstraint(left, right, Lincons1.EQ);
@@ -458,7 +464,8 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     } else {
       unhandled("Unhandled conditional statement", condExpr, true);
     }
-
+    // logger.debug("Branchout constraint: " + branchOutConstraint + ", fallout
+    // constraint: " + fallOutConstraint);
     fallOutWrapper.set(outState.meetCopy(man, fallOutConstraint));
     branchOutWrapper.set(outState.meetCopy(man, branchOutConstraint));
   }
@@ -467,15 +474,17 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     if (v instanceof JimpleLocal) {
       if (SootHelper.isIntValue(v)) {
         linexpr1.setCoeff(new StringVar(((JimpleLocal) v).getName()), new MpqScalar(sign));
+      } else {
+        unhandled("Value is a local variable but not an int type", v, true);
       }
     } else if (v instanceof IntConstant) {
       linexpr1.setCst(new MpqScalar(sign * ((IntConstant) v).value));
     } else {
-      throw new UnsupportedOperationException("Can't handle this type of argument");
+      unhandled("Can't handle this type of argument", v, true);
     }
   }
 
-  public Lincons1 getLinConstraint(Value op1, Value op2, int binOp) {
+  public Lincons1 getLinConstraint(Value op1, Value op2, int constraint) {
     Linexpr1 linexpr1 = new Linexpr1(env);
     if (op1 instanceof IntConstant && op2 instanceof IntConstant) {
       // handle this case separately, otherwise the expression would be incorrect
@@ -484,7 +493,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       setLinexprWithValue(op1, linexpr1, 1);
       setLinexprWithValue(op2, linexpr1, -1);
     }
-    return new Lincons1(binOp, linexpr1);
+    return new Lincons1(constraint, linexpr1);
   }
 
   public Interval getInterval(Object obj, Abstract1 elem) throws ApronException {
@@ -530,18 +539,50 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     } else if (v instanceof IntConstant) {
       e = new Texpr1CstNode(new MpqScalar(((IntConstant) v).value));
     } else {
-      throw new UnsupportedOperationException("Can't handle this type of argument");
+      unhandled("Can't handle this type of argument", v, true);
     }
     return e;
   }
 
-  private void handleBinExpr(Abstract1 outState, AbstractBinopExpr right, int op, String var) throws ApronException {
+  private Abstract1 handleBinExpr(Abstract1 outState, AbstractBinopExpr right, int op,
+      Local left) throws ApronException {
+    Abstract1 newOutState = new Abstract1(man, env);
+    String leftName = left.getName();
     Value op1 = right.getOp1();
     Value op2 = right.getOp2();
     Texpr1Node leftExpr = makeExprFromValue(op1);
     Texpr1Node rightExpr = makeExprFromValue(op2);
     Texpr1BinNode bin = new Texpr1BinNode(op, leftExpr, rightExpr);
     Texpr1Intern expr = new Texpr1Intern(env, bin);
-    outState.assign(man, var, expr, null);
+    if (op1 instanceof Local && op2 instanceof Local) {
+      Local op1Local = (Local) op1;
+      Local op2Local = (Local) op2;
+      if (op1Local.equals(left) && op2Local.equals(left)) {
+        if (op == Texpr1BinNode.OP_ADD) {
+          newOutState = outState.substituteCopy(man, leftName, expr, newOutState);
+        } else {
+          newOutState = outState.forgetCopy(man, leftName, false);
+          newOutState.assign(man, leftName, expr, newOutState);
+        }
+      }
+      if (op1Local.equals(left) || op2Local.equals(left)) {
+        newOutState = outState.substituteCopy(man, leftName, expr, newOutState);
+      } else {
+        newOutState = outState.forgetCopy(man, leftName, false);
+        newOutState.assign(man, leftName, expr, newOutState);
+      }
+    } else if (op1 instanceof Local || op2 instanceof Local) {
+      Local local = op1 instanceof Local ? (Local) op1 : (Local) op2;
+      if (local.equals(left)) {
+        newOutState = outState.substituteCopy(man, leftName, expr, newOutState);
+      } else {
+        newOutState = outState.forgetCopy(man, leftName, false);
+        newOutState.assign(man, leftName, expr, newOutState);
+      }
+    } else {
+      newOutState = outState.forgetCopy(man, leftName, false);
+      newOutState.assign(man, leftName, expr, newOutState);
+    }
+    return newOutState;
   }
 }

@@ -22,9 +22,9 @@ public class SpecificExampleIT {
   @Test
   void specificTest() {
     // TODO: write test that checks for the properties with unreachable invokations
-    String packageName = "ch.ethz.rse.integration.tests.Unreachable_Test";
-    VerificationProperty verificationTask = VerificationProperty.START_END_ORDER;
-    boolean expectedIsSafe = true;
+    String packageName = "ch.ethz.rse.integration.tests.Infinity_Loop_Test";
+    VerificationProperty verificationTask = VerificationProperty.BEFORE_END;
+    boolean expectedIsSafe = false;
     VerificationTestCase t = new VerificationTestCase(packageName, verificationTask, expectedIsSafe);
     SpecificExampleIT.testOnExample(t);
   }
