@@ -467,11 +467,13 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     if (v instanceof JimpleLocal) {
       if (SootHelper.isIntValue(v)) {
         linexpr1.setCoeff(new StringVar(((JimpleLocal) v).getName()), new MpqScalar(sign));
+      } else {
+        unhandled("Value is a local variable but not an int type", v, true);
       }
     } else if (v instanceof IntConstant) {
       linexpr1.setCst(new MpqScalar(sign * ((IntConstant) v).value));
     } else {
-      throw new UnsupportedOperationException("Can't handle this type of argument");
+      unhandled("Can't handle this type of argument", v, true);
     }
   }
 
@@ -530,7 +532,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     } else if (v instanceof IntConstant) {
       e = new Texpr1CstNode(new MpqScalar(((IntConstant) v).value));
     } else {
-      throw new UnsupportedOperationException("Can't handle this type of argument");
+      unhandled("Can't handle this type of argument", v, true);
     }
     return e;
   }
