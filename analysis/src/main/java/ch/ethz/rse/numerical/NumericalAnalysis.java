@@ -528,6 +528,8 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     if (v instanceof JimpleLocal) {
       if (SootHelper.isIntValue(v)) {
         e = new Texpr1VarNode(((JimpleLocal) v).getName());
+      } else {
+        unhandled("Value is a local variable but not an int type", v, true);
       }
     } else if (v instanceof IntConstant) {
       e = new Texpr1CstNode(new MpqScalar(((IntConstant) v).value));

@@ -91,6 +91,13 @@ public class NumericalStateWrapper {
     other.elem = copy.elem;
   }
 
+  /**
+   * Custom convenience method:
+   * Joins this state with `other`
+   *
+   * @param other
+   * @return joined state
+   */
   public NumericalStateWrapper join(NumericalStateWrapper other) {
     try {
       Abstract1 joined = this.elem.joinCopy(man, other.elem);
@@ -101,6 +108,13 @@ public class NumericalStateWrapper {
     }
   }
 
+  /**
+   * Custom convenience method:
+   * Joins this state with `other` before widenening joined result
+   *
+   * @param other
+   * @return widened state
+   */
   public NumericalStateWrapper widen(NumericalStateWrapper other) {
     try {
       // apron requires explicit joining before widening

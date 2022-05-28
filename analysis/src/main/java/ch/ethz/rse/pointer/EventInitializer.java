@@ -11,6 +11,7 @@ import soot.jimple.internal.JInvokeStmt;
  *
  */
 public class EventInitializer {
+  // FIELDS
 
   /**
    * statement that performs the initialization
@@ -34,6 +35,7 @@ public class EventInitializer {
 
   /**
    * The invoke statements associated to this initializer
+   * Used for verification
    */
   private List<JInvokeStmt> invokes = new LinkedList<JInvokeStmt>();
 
@@ -77,10 +79,10 @@ public class EventInitializer {
 
   /**
    *
-   * @param s invoke statemet to add to this initializer
+   * @param stmt invoke statemet to add to this initializer
    */
-  public void addInvoke(JInvokeStmt s) {
-    invokes.add(s);
+  public void addInvoke(JInvokeStmt stmt) {
+    invokes.add(stmt);
   }
 
   /**
