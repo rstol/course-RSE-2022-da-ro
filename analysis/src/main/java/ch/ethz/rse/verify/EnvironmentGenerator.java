@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory; //NEW
 import apron.Environment;
 import ch.ethz.rse.pointer.PointsToInitializer;
 import soot.Local;
-import soot.SootHelper;
 import soot.SootMethod;
 
 /**

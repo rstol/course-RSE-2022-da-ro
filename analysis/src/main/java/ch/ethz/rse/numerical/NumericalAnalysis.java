@@ -3,8 +3,10 @@ package ch.ethz.rse.numerical;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,9 +116,9 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
    */
   private static final int WIDENING_THRESHOLD = 6;
 
-  // Map invoke statements to their corresponding abstact value. Used for
+  // Map invoke statements to their corresponding abstact values. Used for
   // verification
-  public final Map<JInvokeStmt, Abstract1> invokeToAbstract = new HashMap<JInvokeStmt, Abstract1>();
+  public final Multimap<JInvokeStmt, Abstract1> invokeToAbstract = HashMultimap.create();
 
   /**
    *
@@ -251,7 +253,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       branchOutWrapper = branchOutWrappers.get(0);
       inWrapper.copyInto(branchOutWrapper);
     }
-
     try {
       if (s instanceof DefinitionStmt) {
         // handle assignment
@@ -340,8 +341,8 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
         logger.debug("Combined interval: " + newIntervalCombined);
         updateEventWithInterval(jInvStmt, event, fallOutWrapper, newIntervalCombined);
       }
-    } else if (method.getName().contains("<init>")
-        && method.getDeclaringClass().getName().equals(Constants.EventClassName)) {
+    } else if (expr instanceof JSpecialInvokeExpr
+        && this.pointsTo.isRelevantInit((JSpecialInvokeExpr) expr)) {
       logger.debug("Initializer: " + expr.getMethod() + " args: " + expr.getArg(0) + ", " + expr.getArg(1));
       Value end = expr.getArg(1);
       Interval intervalStart = getInterval(expr.getArg(0), fallout);
@@ -375,7 +376,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     event.addInvoke(jInvStmt);
     invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
     // logger.debug("adding to invoke abstract map " + jInvStmt + " and " +
-    // fallOutWrapper.get());
+    // fallOutWrapper.copy().get());
   }
 
   /**

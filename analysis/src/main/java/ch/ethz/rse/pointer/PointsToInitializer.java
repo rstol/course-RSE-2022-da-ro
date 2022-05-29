@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import ch.ethz.rse.utils.Constants;
 import soot.Local;
 import soot.SootClass;
+import soot.SootHelper;
 import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
@@ -81,7 +82,7 @@ public class PointsToInitializer {
    * @param method
    */
   private void analyzeMethod(SootMethod method) {
-    for (Unit ut : method.retrieveActiveBody().getUnits()) {
+    for (Unit ut : SootHelper.getUnitGraph(method)) {
       if (ut instanceof JInvokeStmt) {
         JInvokeStmt jInvStmt = (JInvokeStmt) ut;
         InvokeExpr invokeExpr = jInvStmt.getInvokeExpr();

@@ -1,7 +1,8 @@
 package ch.ethz.rse.verify;
 
 import java.util.Collection;
-import java.util.Map;
+
+import com.google.common.collect.Multimap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +71,7 @@ public class Verifier extends AVerifier {
       NumericalAnalysis analysis = this.numericalAnalysis.get(method);
       Manager man = analysis.man;
       Collection<EventInitializer> events = this.pointsTo.getInitializers(method);
-      Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
+      Multimap<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
       // Verify for each method that all Event constructor invokes assosicated with
       // each event satisfy the START_END_ORDER
       for (EventInitializer event : events) {
@@ -80,23 +81,24 @@ public class Verifier extends AVerifier {
           InvokeExpr expr = invokeStmt.getInvokeExpr();
           // only analyze constructor invokes
           if (expr instanceof SpecialInvokeExpr) {
-            logger.debug("Checking invoke statement " + invokeStmt);
             Value end = expr.getArg(1);
-            Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-            // Conservative assumption: Define constraint as inverse to what we want to
-            // check, such that the property is SAFE if the abstract state intersected with
-            // this inverse constraint is definitely bottom.
-            Lincons1 lincons1 = analysis.getLinConstraint(start, end, Lincons1.SUP);
-            // logger.debug("Constraint: " + lincons1);
-            try {
-              // logger.debug("fallout before meet: " + fallout);
-              fallout.meet(man, lincons1);
-              logger.debug("fallout after meet: " + fallout);
-              if (!fallout.isBottom(man))
-                // start > end => property might not hold
-                return false;
-            } catch (ApronException e1) {
-              e1.printStackTrace();
+            // each invokestatement may have multiple abstract states associated to it
+            for (Abstract1 fallout : invokeToAbstract.get(invokeStmt)) {
+              // Conservative assumption: Define constraint as inverse to what we want to
+              // check, such that the property is SAFE if the abstract state intersected with
+              // this inverse constraint is definitely bottom.
+              Lincons1 lincons1 = analysis.getLinConstraint(start, end, Lincons1.SUP);
+              // logger.debug("Constraint: " + lincons1);
+              try {
+                // logger.debug("fallout before meet: " + fallout);
+                Abstract1 falloutAfterMeet = fallout.meetCopy(man, lincons1);
+                // logger.debug("fallout after meet: " + falloutAfterMeet);
+                if (!falloutAfterMeet.isBottom(man))
+                  // start > end => property might not hold
+                  return false;
+              } catch (ApronException e1) {
+                e1.printStackTrace();
+              }
             }
           }
         }
@@ -115,7 +117,7 @@ public class Verifier extends AVerifier {
       NumericalAnalysis analysis = this.numericalAnalysis.get(method);
       Manager man = analysis.man;
       Collection<EventInitializer> events = this.pointsTo.getInitializers(method);
-      Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
+      Multimap<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
 
       // Verify for each method that all switchLights invokes assosicated with each
       // event have an argument that lies after the event start
@@ -128,22 +130,23 @@ public class Verifier extends AVerifier {
           if (expr instanceof VirtualInvokeExpr) {
             logger.debug("Checking event " + event.toString() + " with invoke statement " + invokeStmt);
             Value time = expr.getArg(0);
-            Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-            // Conservative assumption: Define constraint as inverse to what we want to
-            // check, such that the property is SAFE if the abstract state intersected with
-            // this inverse constraint is definitely bottom.
-            Lincons1 lincons1 = analysis.getLinConstraint(start, time, Lincons1.SUP);
-            try {
-              fallout.meet(man, lincons1);
-              // for (Abstract1 f : invokeToAbstract.values()) {
-              // logger.debug("Fallout is " + f);
-              // }
-              logger.debug("fallout: " + fallout);
-              if (!fallout.isBottom(man))
-                // start > time => property might not hold
-                return false;
-            } catch (ApronException e1) {
-              e1.printStackTrace();
+            // each invokestatement may have multiple abstract states associated to it
+            for (Abstract1 fallout : invokeToAbstract.get(invokeStmt)) {
+              // Conservative assumption: Define constraint as inverse to what we want to
+              // check, such that the property is SAFE if the abstract state intersected with
+              // this inverse constraint is definitely bottom.
+              Lincons1 lincons1 = analysis.getLinConstraint(start, time, Lincons1.SUP);
+              // logger.debug("Constraint: " + lincons1);
+              try {
+                // logger.debug("fallout before meet: " + fallout);
+                Abstract1 falloutAfterMeet = fallout.meetCopy(man, lincons1);
+                // logger.debug("fallout after meet: " + falloutAfterMeet);
+                if (!falloutAfterMeet.isBottom(man))
+                  // start > time => property might not hold
+                  return false;
+              } catch (ApronException e1) {
+                e1.printStackTrace();
+              }
             }
           }
         }
@@ -162,7 +165,7 @@ public class Verifier extends AVerifier {
       NumericalAnalysis analysis = this.numericalAnalysis.get(method);
       Manager man = analysis.man;
       Collection<EventInitializer> events = this.pointsTo.getInitializers(method);
-      Map<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
+      Multimap<JInvokeStmt, Abstract1> invokeToAbstract = analysis.invokeToAbstract;
       // Verify for each method that all switchLights invokes assosicated with each
       // event have an argument that lies before the event end
       for (EventInitializer event : events) {
@@ -174,19 +177,23 @@ public class Verifier extends AVerifier {
           if (expr instanceof VirtualInvokeExpr) {
             logger.debug("Checking event " + event.toString() + " with invoke statement " + invokeStmt);
             Value time = expr.getArg(0);
-            // Conservative assumption: Define constraint as inverse to what we want to
-            // check, such that the property is SAFE if the abstract state intersected with
-            // this inverse constraint is definitely bottom.
-            Lincons1 lincons1 = analysis.getLinConstraint(time, end, Lincons1.SUP);
-            Abstract1 fallout = invokeToAbstract.get(invokeStmt);
-            try {
-              fallout.meet(man, lincons1);
-              logger.debug("fallout: " + fallout);
-              if (!fallout.isBottom(man))
-                // time > end => property might not hold
-                return false;
-            } catch (ApronException e1) {
-              e1.printStackTrace();
+            // each invokestatement may have multiple abstract states associated to it
+            for (Abstract1 fallout : invokeToAbstract.get(invokeStmt)) {
+              // Conservative assumption: Define constraint as inverse to what we want to
+              // check, such that the property is SAFE if the abstract state intersected with
+              // this inverse constraint is definitely bottom.
+              Lincons1 lincons1 = analysis.getLinConstraint(time, end, Lincons1.SUP);
+              // logger.debug("Constraint: " + lincons1);
+              try {
+                // logger.debug("fallout before meet: " + fallout);
+                Abstract1 falloutAfterMeet = fallout.meetCopy(man, lincons1);
+                // logger.debug("fallout after meet: " + falloutAfterMeet);
+                if (!falloutAfterMeet.isBottom(man))
+                  // time > end => property might not hold
+                  return false;
+              } catch (ApronException e1) {
+                e1.printStackTrace();
+              }
             }
           }
         }
