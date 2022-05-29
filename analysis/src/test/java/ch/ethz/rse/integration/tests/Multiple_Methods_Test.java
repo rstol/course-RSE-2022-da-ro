@@ -4,21 +4,23 @@ import ch.ethz.rse.Event;
 
 // expected results:
 // START_END_ORDER SAFE
-// AFTER_START UNSAFE
-// BEFORE_END UNSAFE
+// AFTER_START SAFE
+// BEFORE_END SAFE
 
 public class Multiple_Methods_Test {
   public void m1(int i) {
-    Event e = new Event(10, 10); // makes AFTER_START UNSAFE
-    Event e1 = new Event(0, 0); // makes BEFORE_END UNSAFE
+    Event e = new Event(0, 50);
+    Event e1 = new Event(0, 50);
     Event e2;
     if (i >= 0) {
       e2 = e;
     } else {
       e2 = e1;
     }
-    if (i >= 0 && i <= 10)
+    if (i >= 0 && i <= 50) {
+      e.switchLights(i);
       e2.switchLights(i);
+    }
   }
 
   public void m2(int i) {
