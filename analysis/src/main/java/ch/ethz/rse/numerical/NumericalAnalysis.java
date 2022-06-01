@@ -1,5 +1,6 @@
 package ch.ethz.rse.numerical;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -336,21 +337,22 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       for (EventInitializer event : pointsTo.pointsTo(base)) {
         Interval intervalEvent = getInterval(event.getVar(), fallout);
         Interval newIntervalCombined = combineIntervals(intervalArg, intervalEvent);
-        logger.debug("Event interval: " + intervalEvent);
-        logger.debug("Arg interval : " + intervalArg);
-        logger.debug("Combined interval: " + newIntervalCombined);
+        // logger.debug("Event interval: " + intervalEvent);
+        // logger.debug("Arg interval : " + intervalArg);
+        // logger.debug("Combined interval: " + newIntervalCombined);
         updateEventWithInterval(jInvStmt, event, fallOutWrapper, newIntervalCombined);
       }
     } else if (expr instanceof JSpecialInvokeExpr
         && this.pointsTo.isRelevantInit((JSpecialInvokeExpr) expr)) {
-      logger.debug("Initializer: " + expr.getMethod() + " args: " + expr.getArg(0) + ", " + expr.getArg(1));
+      // logger.debug("Initializer: " + expr.getMethod() + " args: " + expr.getArg(0)
+      // + ", " + expr.getArg(1));
       Value end = expr.getArg(1);
       Interval intervalStart = getInterval(expr.getArg(0), fallout);
       Interval intervalEnd = getInterval(end, fallout);
-      logger.debug("Start interval: " + intervalStart);
-      logger.debug("End interval: " + intervalEnd);
+      // logger.debug("Start interval: " + intervalStart);
+      // logger.debug("End interval: " + intervalEnd);
       Interval eventIntervalCombined = combineIntervals(intervalStart, intervalEnd);
-      logger.debug("Event interval combined: " + eventIntervalCombined);
+      // logger.debug("Event interval combined: " + eventIntervalCombined);
 
       Local base = (Local) ((SpecialInvokeExpr) expr).getBase();
       for (EventInitializer event : pointsTo.pointsTo(base)) {
@@ -374,9 +376,14 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     fallOutWrapper.set(fallout);
     // track abstract state for each statement for each event initializer
     event.addInvoke(jInvStmt);
-    invokeToAbstract.put(jInvStmt, fallOutWrapper.copy().get());
-    // logger.debug("adding to invoke abstract map " + jInvStmt + " and " +
-    // fallOutWrapper.copy().get());
+    // if abstract mapping from this invoke statemt to abstract state does not exist
+    // add it to the map
+    Abstract1 a = fallOutWrapper.copy().get();
+    if (!invokeToAbstract.containsEntry(jInvStmt, a)) {
+      invokeToAbstract.put(jInvStmt, a);
+      // logger.debug("adding to invoke abstract map " + jInvStmt + " and " +
+      // a);
+    }
   }
 
   /**
