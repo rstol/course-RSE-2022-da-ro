@@ -7,8 +7,7 @@ import ch.ethz.rse.Event;
 // AFTER_START SAFE
 // BEFORE_END SAFE
 
-// Test nested loops
-public class Loop_Nested2_Test {
+public class Loop_6Nested_Test {
   public static void m2(int i) {
     i = 64;
     Event e = new Event(0, i);
