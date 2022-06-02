@@ -1,19 +1,20 @@
+
 package ch.ethz.rse.integration.tests;
 
 import ch.ethz.rse.Event;
 
 // expected results:
 // START_END_ORDER SAFE
-// AFTER_START SAFE
-// BEFORE_END UNSAFE
+// AFTER_START UNSAFE
+// BEFORE_END SAFE
 
-public class Loop_Test1 {
+public class Loop2_Test {
   public static void m1(int i) {
     Event e = new Event(0, 200);
-    for (int j = 0; j < 50; j++) {
+    for (int j = 0; j <= 100; j++) {
       e.switchLights(j);
     }
-    for (int k = 0; k < i; k++) {
+    for (int k = 200; k > i; k--) {
       e.switchLights(k);
     }
     e.switchLights(0);
