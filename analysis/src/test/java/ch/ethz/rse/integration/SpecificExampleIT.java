@@ -21,7 +21,7 @@ public class SpecificExampleIT {
    */
   @Test
   void specificTest() {
-    String packageName = "ch.ethz.rse.integration.tests.Loop_Nested1_Test";
+    String packageName = "ch.ethz.rse.integration.tests.Loop2_Test";
     VerificationProperty verificationTask = VerificationProperty.BEFORE_END;
     boolean expectedIsSafe = true;
     VerificationTestCase t = new VerificationTestCase(packageName, verificationTask, expectedIsSafe);
