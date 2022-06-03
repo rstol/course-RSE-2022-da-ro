@@ -197,19 +197,18 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   @Override
   protected void merge(Unit succNode, NumericalStateWrapper w1, NumericalStateWrapper w2, NumericalStateWrapper w3) {
     // merge the two states from w1 and w2 and store the result into w3
-    logger.debug("in merge: " + succNode);
+    // logger.debug("in merge: " + succNode);
     IntegerWrapper headCount = loopHeads.get(succNode);
     if (headCount != null) {
       if (loopHeadState.containsKey(succNode)) {
         NumericalStateWrapper previousLoopHeadState = loopHeadState.get(succNode);
-        logger.debug("Previous loop head state is: " + previousLoopHeadState.get());
-        // use previous state as oldState
+        // logger.debug("Previous loop head state is: " + previousLoopHeadState.get());
         try {
+          // use previous state as oldState if the previous state was not bottom
           if (!previousLoopHeadState.get().isBottom(man)) {
             w1 = previousLoopHeadState;
           }
         } catch (ApronException e) {
-          // TODO Auto-generated catch block
           e.printStackTrace();
         }
         // widen or join previous state with just computed state
@@ -222,7 +221,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       } else {
         w3.set(w1.join(w2).get());
       }
-
       loopHeadState.put(succNode, w3);
     } else {
       w3.set(w1.join(w2).get());
@@ -411,28 +409,18 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     Abstract1 outStateNew = new Abstract1(man, env);
     if (left instanceof JimpleLocal) {
       String leftLocal = ((JimpleLocal) left).getName();
-      Texpr1Node rightExpr = null;
-      Texpr1Intern expr = null;
+      Linexpr1 expr = null;
       if (right instanceof IntConstant) {
-        // rightExpr = new Texpr1CstNode(new MpqScalar(((IntConstant) right).value));
-        // expr = new Texpr1Intern(env, rightExpr);
-        // outState.assign(man, leftLocal, expr, null);
-
-        int x = ((IntConstant) right).value;
-        Linexpr1 e = new Linexpr1(env, new Linterm1[] {}, new MpqScalar(x));
+        expr = new Linexpr1(env, new Linterm1[] {}, new MpqScalar(((IntConstant) right).value));
         outStateNew = outState.forgetCopy(man, leftLocal, false);
-        outStateNew.assign(man, leftLocal, e, outStateNew);
+        outStateNew.assign(man, leftLocal, expr, outStateNew);
       } else if (right instanceof JimpleLocal) {
         JimpleLocal rightLocal = (JimpleLocal) right;
-        // rightExpr = new Texpr1VarNode(rightLocal.getName());
-        // expr = new Texpr1Intern(env, rightExpr);
-        // outState.assign(man, leftLocal, expr, null);
-        Linterm1 t = new Linterm1(rightLocal.getName(), new MpqScalar(1));
-        Linexpr1 e = new Linexpr1(env, new Linterm1[] { t }, new MpqScalar(0));
-        logger.info(outState.toString());
+        Linterm1 linterm1 = new Linterm1(rightLocal.getName(), new MpqScalar(1));
+        expr = new Linexpr1(env, new Linterm1[] { linterm1 }, new MpqScalar(0));
         outStateNew = outState.forgetCopy(man, leftLocal, false);
-        outStateNew.assign(man, leftLocal, e, outState);
-        // logger.info("Out state after meet: " + outState.toString());
+        outStateNew.assign(man, leftLocal, expr, outState);
+        // logger.info("Out state after meet: " + outStateNew.toString());
       } else if (right instanceof BinopExpr) {
         if (right instanceof JMulExpr) {
           outStateNew = handleBinExpr(outState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);

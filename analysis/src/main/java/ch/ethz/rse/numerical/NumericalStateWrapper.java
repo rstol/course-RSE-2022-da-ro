@@ -120,7 +120,7 @@ public class NumericalStateWrapper {
       // apron requires explicit joining before widening
       Abstract1 joined = newState.elem.joinCopy(man, this.elem);
       Abstract1 widened = this.elem.widening(man, joined);
-      logger.debug(this.elem + "widened with " + newState.elem + " = " + widened);
+      logger.debug(this.elem + " widened with " + newState.elem + " = " + widened);
       return new NumericalStateWrapper(man, widened);
     } catch (ApronException e) {
       throw new RuntimeException(e);
