@@ -204,14 +204,21 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
         NumericalStateWrapper previousLoopHeadState = loopHeadState.get(succNode);
         logger.debug("Previous loop head state is: " + previousLoopHeadState.get());
         // use previous state as oldState
-        w1 = previousLoopHeadState;
+        try {
+          if (!previousLoopHeadState.get().isBottom(man)) {
+            w1 = previousLoopHeadState;
+          }
+        } catch (ApronException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
         // widen or join previous state with just computed state
+        headCount.value++;
         if (headCount.value < WIDENING_THRESHOLD) {
           w3.set(w1.join(w2).get());
         } else {
           w3.set(w1.widen(w2).get());
         }
-        headCount.value++;
       } else {
         w3.set(w1.join(w2).get());
       }
