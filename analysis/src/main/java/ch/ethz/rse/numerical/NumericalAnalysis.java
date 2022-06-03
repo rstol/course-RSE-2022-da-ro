@@ -197,12 +197,12 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   @Override
   protected void merge(Unit succNode, NumericalStateWrapper w1, NumericalStateWrapper w2, NumericalStateWrapper w3) {
     // merge the two states from w1 and w2 and store the result into w3
-    // logger.debug("in merge: " + succNode);
+    logger.debug("in merge: " + succNode);
     IntegerWrapper headCount = loopHeads.get(succNode);
     if (headCount != null) {
       if (loopHeadState.containsKey(succNode)) {
         NumericalStateWrapper previousLoopHeadState = loopHeadState.get(succNode);
-        // logger.debug("Previous loop head state is: " + previousLoopHeadState.get());
+        logger.debug("Previous loop head state is: " + previousLoopHeadState.get());
         // use previous state as oldState
         w1 = previousLoopHeadState;
         // widen or join previous state with just computed state
@@ -258,7 +258,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       branchOutWrapper = branchOutWrappers.get(0);
       inWrapper.copyInto(branchOutWrapper);
     }
-
     try {
       if (s instanceof DefinitionStmt) {
         // handle assignment
@@ -402,34 +401,45 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
    */
   private void handleDef(NumericalStateWrapper outWrapper, Value left, Value right) throws ApronException {
     Abstract1 outState = outWrapper.get();
+    Abstract1 outStateNew = new Abstract1(man, env);
     if (left instanceof JimpleLocal) {
       String leftLocal = ((JimpleLocal) left).getName();
       Texpr1Node rightExpr = null;
       Texpr1Intern expr = null;
       if (right instanceof IntConstant) {
-        rightExpr = new Texpr1CstNode(new MpqScalar(((IntConstant) right).value));
-        expr = new Texpr1Intern(env, rightExpr);
-        outState.assign(man, leftLocal, expr, null);
+        // rightExpr = new Texpr1CstNode(new MpqScalar(((IntConstant) right).value));
+        // expr = new Texpr1Intern(env, rightExpr);
+        // outState.assign(man, leftLocal, expr, null);
+
+        int x = ((IntConstant) right).value;
+        Linexpr1 e = new Linexpr1(env, new Linterm1[] {}, new MpqScalar(x));
+        outStateNew = outState.forgetCopy(man, leftLocal, false);
+        outStateNew.assign(man, leftLocal, e, outStateNew);
       } else if (right instanceof JimpleLocal) {
         JimpleLocal rightLocal = (JimpleLocal) right;
-        rightExpr = new Texpr1VarNode(rightLocal.getName());
-        expr = new Texpr1Intern(env, rightExpr);
-        outState.assign(man, leftLocal, expr, null);
+        // rightExpr = new Texpr1VarNode(rightLocal.getName());
+        // expr = new Texpr1Intern(env, rightExpr);
+        // outState.assign(man, leftLocal, expr, null);
+        Linterm1 t = new Linterm1(rightLocal.getName(), new MpqScalar(1));
+        Linexpr1 e = new Linexpr1(env, new Linterm1[] { t }, new MpqScalar(0));
+        logger.info(outState.toString());
+        outStateNew = outState.forgetCopy(man, leftLocal, false);
+        outStateNew.assign(man, leftLocal, e, outState);
         // logger.info("Out state after meet: " + outState.toString());
       } else if (right instanceof BinopExpr) {
         if (right instanceof JMulExpr) {
-          handleBinExpr(outState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
+          outStateNew = handleBinExpr(outState, (JMulExpr) right, Texpr1BinNode.OP_MUL, leftLocal);
         } else if (right instanceof JSubExpr) {
-          handleBinExpr(outState, (JSubExpr) right, Texpr1BinNode.OP_SUB, leftLocal);
+          outStateNew = handleBinExpr(outState, (JSubExpr) right, Texpr1BinNode.OP_SUB, leftLocal);
         } else if (right instanceof JAddExpr) {
-          handleBinExpr(outState, (JAddExpr) right, Texpr1BinNode.OP_ADD, leftLocal);
+          outStateNew = handleBinExpr(outState, (JAddExpr) right, Texpr1BinNode.OP_ADD, leftLocal);
         }
       } else {
         Interval interval = new Interval();
         interval.setTop();
-        outState = new Abstract1(man, env, new String[] { ((Local) left).getName() }, new Interval[] { interval });
+        outStateNew = new Abstract1(man, env, new String[] { ((Local) left).getName() }, new Interval[] { interval });
       }
-      outWrapper.set(outState);
+      outWrapper.set(outStateNew);
     }
   }
 
@@ -471,15 +481,9 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     } else {
       unhandled("Unhandled conditional statement", condExpr, true);
     }
-    Abstract1 falloutAfterMeet = outState.meetCopy(man, fallOutConstraint);
-    Abstract1 brachoutAfterMeet = outState.meetCopy(man, branchOutConstraint);
-    if (brachoutAfterMeet.isBottom(man)) {
-      fallOutWrapper.set(brachoutAfterMeet);
-      branchOutWrapper.set(falloutAfterMeet);
-    } else {
-      fallOutWrapper.set(outState.meetCopy(man, fallOutConstraint));
-      branchOutWrapper.set(outState.meetCopy(man, branchOutConstraint));
-    }
+
+    fallOutWrapper.set(outState.meetCopy(man, fallOutConstraint));
+    branchOutWrapper.set(outState.meetCopy(man, branchOutConstraint));
   }
 
   private void setLinexprWithValue(Value v, Linexpr1 linexpr1, int sign) {
@@ -558,13 +562,14 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     return e;
   }
 
-  private void handleBinExpr(Abstract1 outState, AbstractBinopExpr right, int op, String var) throws ApronException {
+  private Abstract1 handleBinExpr(Abstract1 outState, AbstractBinopExpr right, int op, String var)
+      throws ApronException {
     Value op1 = right.getOp1();
     Value op2 = right.getOp2();
     Texpr1Node leftExpr = makeExprFromValue(op1);
     Texpr1Node rightExpr = makeExprFromValue(op2);
     Texpr1BinNode bin = new Texpr1BinNode(op, leftExpr, rightExpr);
     Texpr1Intern expr = new Texpr1Intern(env, bin);
-    outState.assign(man, var, expr, null);
+    return outState.assignCopy(man, var, expr, null);
   }
 }
