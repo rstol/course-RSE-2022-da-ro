@@ -205,11 +205,10 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
         // logger.debug("Previous loop head state is: " + previousLoopHeadState.get());
         // use previous state as oldState
         w1 = previousLoopHeadState;
-        // perform widening or join
+        // widen or join previous state with just computed state
         if (headCount.value < WIDENING_THRESHOLD) {
           w3.set(w1.join(w2).get());
         } else {
-          // widen old state w2 with
           w3.set(w1.widen(w2).get());
         }
         headCount.value++;
@@ -259,6 +258,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
       branchOutWrapper = branchOutWrappers.get(0);
       inWrapper.copyInto(branchOutWrapper);
     }
+
     try {
       if (s instanceof DefinitionStmt) {
         // handle assignment
@@ -471,9 +471,15 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
     } else {
       unhandled("Unhandled conditional statement", condExpr, true);
     }
-
-    fallOutWrapper.set(outState.meetCopy(man, fallOutConstraint));
-    branchOutWrapper.set(outState.meetCopy(man, branchOutConstraint));
+    Abstract1 falloutAfterMeet = outState.meetCopy(man, fallOutConstraint);
+    Abstract1 brachoutAfterMeet = outState.meetCopy(man, branchOutConstraint);
+    if (brachoutAfterMeet.isBottom(man)) {
+      fallOutWrapper.set(brachoutAfterMeet);
+      branchOutWrapper.set(falloutAfterMeet);
+    } else {
+      fallOutWrapper.set(outState.meetCopy(man, fallOutConstraint));
+      branchOutWrapper.set(outState.meetCopy(man, branchOutConstraint));
+    }
   }
 
   private void setLinexprWithValue(Value v, Linexpr1 linexpr1, int sign) {
