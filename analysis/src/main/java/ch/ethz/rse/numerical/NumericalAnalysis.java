@@ -197,25 +197,30 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
   @Override
   protected void merge(Unit succNode, NumericalStateWrapper w1, NumericalStateWrapper w2, NumericalStateWrapper w3) {
     // merge the two states from w1 and w2 and store the result into w3
-    logger.debug("in merge: " + succNode);
+    // logger.debug("in merge: " + succNode);
     IntegerWrapper headCount = loopHeads.get(succNode);
-    // Abstract1 previousLoopHeadState = null;
-    // if (loopHeadState.containsKey(succNode)) {
-    // previousLoopHeadState = loopHeadState.get(succNode).get();
-    // }
-    // logger.debug("Previous loop head state is: " + previousLoopHeadState);
     if (headCount != null) {
-      // perform widening or join
-      if (headCount.value < WIDENING_THRESHOLD) {
-        w3.set(w1.join(w2).get());
+      if (loopHeadState.containsKey(succNode)) {
+        NumericalStateWrapper previousLoopHeadState = loopHeadState.get(succNode);
+        // logger.debug("Previous loop head state is: " + previousLoopHeadState.get());
+        // use previous state as oldState
+        w1 = previousLoopHeadState;
+        // perform widening or join
+        if (headCount.value < WIDENING_THRESHOLD) {
+          w3.set(w1.join(w2).get());
+        } else {
+          // widen old state w2 with
+          w3.set(w1.widen(w2).get());
+        }
+        headCount.value++;
       } else {
-        w3.set(w1.widen(w2).get());
+        w3.set(w1.join(w2).get());
       }
-      headCount.value++;
+
+      loopHeadState.put(succNode, w3);
     } else {
       w3.set(w1.join(w2).get());
     }
-    // loopHeadState.put(succNode, w3);
   }
 
   @Override

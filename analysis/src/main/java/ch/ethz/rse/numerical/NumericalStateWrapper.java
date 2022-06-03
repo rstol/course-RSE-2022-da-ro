@@ -110,17 +110,17 @@ public class NumericalStateWrapper {
 
   /**
    * Custom convenience method:
-   * Joins this state with `other` before widenening joined result
+   * Widens the old (this) state with `newState`
    *
    * @param other
    * @return widened state
    */
-  public NumericalStateWrapper widen(NumericalStateWrapper other) {
+  public NumericalStateWrapper widen(NumericalStateWrapper newState) {
     try {
       // apron requires explicit joining before widening
-      Abstract1 joined = this.elem.joinCopy(man, other.elem);
+      Abstract1 joined = newState.elem.joinCopy(man, this.elem);
       Abstract1 widened = this.elem.widening(man, joined);
-      logger.debug(this.elem + "widened with " + other.elem + " = " + widened);
+      logger.debug(this.elem + "widened with " + newState.elem + " = " + widened);
       return new NumericalStateWrapper(man, widened);
     } catch (ApronException e) {
       throw new RuntimeException(e);
