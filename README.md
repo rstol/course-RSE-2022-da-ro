@@ -1,4 +1,4 @@
-# RSE Project Development
+# Rigorous Software Engineering Project Development
 
 In this file, we explain how to set up, run, and develop this project. Before
 reading this, you should read the [project
